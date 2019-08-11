@@ -1,0 +1,133 @@
+<form class="splunk-formatter-section" section-label="General">
+
+        <splunk-control-group label="Click action">
+                <splunk-select name="{{VIZ_NAMESPACE}}.onclick" value="none">
+                        <option value="none">No action</option>
+                        <option value="zoom">Zoom in</option>
+                        <option value="drilldown">Drilldown to search</option>
+                        <option value="token">Set tokens $circlepack_viz_{field}$</option>
+                </splunk-select>
+        </splunk-control-group>
+
+        <splunk-control-group label="Color set">
+                <splunk-select name="{{VIZ_NAMESPACE}}.color" value="schemeCategory10">
+                        <option value="schemeCategory10">Bright</option>
+                        <option value="schemeAccent">Accent</option>
+                        <option value="schemeDark2">Dark</option>
+                        <option value="schemePaired">Paired</option>
+                        <option value="schemePastel1">Pastel 1</option>
+                        <option value="schemePastel2">Pastel 2</option>
+                        <option value="schemeSet1">Schemeset 1</option>
+                        <option value="schemeSet2">Schemeset 2</option>
+                        <option value="schemeSet3">Schemeset 3</option> 
+                        <option value="interpolateRainbow">Rainbow</option>
+                        <option value="interpolateSinebow">Sinebow</option>
+                        <option value="interpolateCubehelixDefault">Cubehelix</option>
+                        <option value="interpolateMagma">Magma</option>
+                        <option value="interpolatePlasma">Plasma</option>
+                        <option value="interpolateViridis">Viridis</option>
+                        <option value="interpolateCool">Cool</option>
+                        <option value="interpolateWarm">Warm</option>
+                        <option value="interpolateBlues">Blues</option>
+                        <option value="interpolateGreens">Greens</option>
+                        <option value="interpolateGreys">Greys</option>
+                        <option value="interpolateOranges">Oranges</option>
+                        <option value="interpolatePurples">Purples</option>
+                        <option value="interpolateReds">Reds</option>
+                </splunk-select>
+        </splunk-control-group>
+
+        <splunk-control-group label="Set color by">
+                <splunk-select name="{{VIZ_NAMESPACE}}.colormode" value="depth">
+                        <option value="depth">Depth</option>
+                        <option value="size">Size</option>
+                        <option value="name">Name</option>
+                        <option value="parent">Parent</option>
+                        <option value="firstdata">First field (no grouping)</option>
+                        <option value="firstdatacodes">First field as color codes (n/g)</option>
+                </splunk-select>
+        </splunk-control-group>
+
+        <splunk-control-group label="Color overrides">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.coloroverride" value=""></splunk-text-input>
+        </splunk-control-group> 
+
+        <splunk-control-group label="Sorting">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.packing" value="circle">
+                        <option value="circle">Circle</option>
+                        <option value="random">None</option>
+                </splunk-radio-input>
+        </splunk-control-group>
+
+        <splunk-control-group label="Shadow">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.shadow" value="show">
+                        <option value="show">On</option>
+                        <option value="hide">Off</option>
+                </splunk-radio-input>
+        </splunk-control-group>
+
+        <splunk-control-group label="Labels">
+                <splunk-select name="{{VIZ_NAMESPACE}}.labels" value="show">
+                        <option value="hide">Hide</option>
+                        <option value="show">Show on leaf nodes</option>
+                        <option value="show1">Show where depth is 1</option>
+                        <option value="show2">Show where depth is 2</option>
+                        <option value="show3">Show where depth is 3</option>
+                        <option value="show4">Show where depth is 4</option>
+                        <option value="show5">Show where depth is 5</option>
+                </splunk-select>
+        </splunk-control-group>
+
+        <splunk-control-group label="Label wrap">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.labelwrap" value="on">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
+                </splunk-radio-input>
+        </splunk-control-group>
+
+        <splunk-control-group label="Label truncate">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.labeltruncate" value="off">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
+                </splunk-radio-input>
+        </splunk-control-group>
+        
+        <splunk-control-group label="Label size">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.labelsize" value="100" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
+                <span style="display:inline-block; margin:5px 15px 5px 5px;">%</span>
+        </splunk-control-group> 
+
+        <splunk-control-group label="Label color">
+                <splunk-color-picker name="{{VIZ_NAMESPACE}}.labelcolor" value="#000000" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
+                        <splunk-color>#ffffff</splunk-color>
+                        <splunk-color>#C6C6C6</splunk-color>
+                        <splunk-color>#919191</splunk-color>
+                        <splunk-color>#5E5E5E</splunk-color>
+                        <splunk-color>#000000</splunk-color>
+                        <splunk-color>#53a051</splunk-color>
+                        <splunk-color>#dc4d41</splunk-color>
+                        <splunk-color>#d16f18</splunk-color>
+                        <splunk-color>#009DD9</splunk-color>
+                        <splunk-color>#ebb839</splunk-color>
+                        <splunk-color>#1a9035</splunk-color>
+                        <splunk-color>#b22b32</splunk-color>
+                        <splunk-color>#AF5300</splunk-color>
+                        <splunk-color>#0178c7</splunk-color>
+                        <splunk-color>#ecbc1b</splunk-color>
+                </splunk-color-picker>
+        </splunk-control-group>
+
+</form>
+
+<form class="splunk-formatter-section" section-label="Help">
+        <splunk-control-group label=" ">
+        <div style="margin-top:40px 10px 10px 0">
+                <div>Example queries:</div>
+                <div style="margin-top:10px;"><code>... | table group1 group2 group3 count</code></div>
+                <div>or</div>
+                <div><code>... | stats count by group1 group2 group3</code></div>
+                <div style="margin-top:30px;"><a href="/app/circlepack_viz/documentation" target="_blank">Examples and Documentation</a></div>
+                <div style="margin-top:40px;">By Chris Younger - <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds" target="_blank">My other apps</a></div>
+        </div> 
+        </splunk-control-group>
+</form>
