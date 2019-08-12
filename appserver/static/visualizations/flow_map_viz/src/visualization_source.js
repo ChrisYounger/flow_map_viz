@@ -36,6 +36,7 @@ function(
                 stop_when_not_visible: "yes",
                 node_repel_force: "100",
                 node_center_force: "0.001",
+                mode: "particles",
 
                 link_speed: "10",
                 link_opacity: "0.4",
@@ -47,7 +48,7 @@ function(
                 particle_good_color: "#1a9035",
                 particle_warn_color: "#d16f18",
                 particle_error_color: "#b22b32",
-                particle_spread: "50",
+                particle_spread: "5",
                 particle_size: "3",
                 
                 node_width: "150",
@@ -60,7 +61,7 @@ function(
                 node_radius: 10,
                 node_shadow: "show",
 
-                positions: '',//'{"CDP:Parent":"64,29","Box1":"79,52","RLS":"51,40","Lixi:in":"64,40","Lixi:out":"64,28","Unrelated1":"7,22","Unrelated2":"20,33","xPression":"38,35","Hunter":"80,58","CDP":"63,86","Equifax":"79,47","Integrity":"42,6"}',
+                positions: '"CDP:Parent":"57,22","Box1":"72,14","Box2":"9,23","RLS":"42,37","Lixi:in":"29,30","Lixi:out":"29,42","Unrelated1":"14,24","Unrelated2":"4,23","xPression":"96,50","Hunter":"72,9","CDP":"57,17","Equifax":"72,21","Integrity":"52,32"',
                 
             };
             // Override defaults with selected items from the UI
@@ -69,6 +70,15 @@ function(
                     viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = config[opt];
                 }
             }
+            
+            viz.particleTypes = {
+                good:  viz.config.particle_good_color,
+                warn:  viz.config.particle_warn_color,
+                error: viz.config.particle_error_color,
+            };
+
+            viz.delayUntilParticles = 2000;
+
             viz.data = data;
             viz.scheduleDraw();
         },
@@ -122,13 +132,180 @@ function(
             viz.totalParticles = ln.good + ln.warn + ln.error;
         },
 
-        doDraw: function(){
+        // Add hander for dragging. Anything dragged will get a fixed position
+        drag: function(simulation) {
+            var viz = this;
+            return d3.drag()
+                .on("start", function(d) {
+                    viz.particlegroup.selectAll("circle").remove();
+                    viz.isDragging = true;
+                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                })
+                .on("drag", function(d) {
+                    d.fx = d3.event.x;
+                    d.fy = d3.event.y;
+                })
+                .on("end", function(d) {
+                    viz.isDragging = false;
+                    viz.startParticlesTime = (new Date).getTime() + viz.delayUntilParticles;
+                    if (!d3.event.active) simulation.alphaTarget(0);
+                    viz.positionsButton.css("opacity",1);
+                    clearTimeout(viz.positionsButtonTimeout);
+                    viz.positionsButtonTimeout = setTimeout(function(){
+                        viz.positionsButton.css("opacity",0);
+                    }, 10000);
+                });
+        },
+
+        copyTextToClipboard: function(text) {
+            var viz = this;
+            if (!navigator.clipboard) {
+                viz.fallbackCopyTextToClipboard(text);
+                return;
+            }
+            navigator.clipboard.writeText(text).then(function () {
+                viz.toast('Copied to clipboard! (now paste into settings)');
+            }, function (err) {
+                console.error('Async: Could not copy text: ', err);
+            });
+        },
+
+        fallbackCopyTextToClipboard: function(text) {
+            var viz = this;
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                var successful = document.execCommand('copy');
+                var msg = successful ? 'successful' : 'unsuccessful';
+                viz.toast('Copied to clipboard! (now paste into settings)');
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        },
+
+        // Toast popup message
+        toast: function(message) {
+            var t = $("<div style='background-color: #53a051; width: 432px;  height: 60px; position: fixed; top: 100px; margin-left: -116px;  left: 50%; line-height: 60px; padding: 0 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23); color: white; opacity: 0; transform: translateY(30px); text-align: center; transition: all 300ms;'><span></span></div>");
+            t.appendTo("body").find('span').text(message);
+            setTimeout(function(){
+                t.css({'opacity': 1, 'transform': 'translateY(0)'});
+                setTimeout(function(){
+                    t.css({'opacity': 0, 'transform': 'translateY(30px)'});
+                    setTimeout(function(){
+                        t.remove();
+                    },300);
+                },3000);
+            },10);
+        },
+
+        // Write the current position of elements to the console
+        dumpPositions: function(){
+            var viz = this;
+            viz.nodePos = {};
+            for (var i = 0; i < viz.nodes.length; i++){
+                var d = viz.nodes[i];
+                // TODO does this work or need to store fx/fy
+                viz.nodePos[d.id] = "" + Math.round(d.x / viz.width * 100) + "," + Math.round(d.y / viz.height * 100);
+                if (i === viz.nodes.length - 1){
+                    var dump = JSON.stringify(viz.nodePos);
+                    console.log(dump.substr(1,dump.length-2));
+                    viz.copyTextToClipboard(dump.substr(1,dump.length-2));
+                }
+            }
+        },
+
+        // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
+        loadPositions: function(){
+            var viz = this;
+            var positions = {};
+            var xy;
+            if (viz.config.positions !== "") {
+                try {
+                    positions = JSON.parse("{" + viz.config.positions + "}");
+                } catch (e) {
+                    console.log("Unable to load initial positioning as it isnt a valid JSON array");
+                }
+            }
+            for (var i = 0; i < viz.nodes.length; i++){
+                if (positions.hasOwnProperty(viz.nodes[i].id)) {
+                    xy = positions[viz.nodes[i].id].split(",");
+                    viz.nodes[i].xperc = xy[0];
+                    viz.nodes[i].yperc = xy[1];
+                } 
+                // its possible there might be an xperc and no yperc if it was specifed in the data
+                if (viz.nodes[i].xperc !== "") {
+                    // .fx sets a fixed x position
+                    viz.nodes[i].fx = viz.nodes[i].xperc / 100 * viz.width;
+                } else {
+                    // set a default xposition that will be affected by forces
+                    viz.nodes[i].x = viz.width / 2;
+                }
+                if (viz.nodes[i].yperc !== "") {
+                    viz.nodes[i].fy = viz.nodes[i].yperc / 100 * viz.height;
+                } else {
+                    viz.nodes[i].y = viz.height / 2;
+                }
+            }
+        },
+
+        // Create circle particle creator, 
+        // Each link can have three of these for good/warn/error particles
+        startParticles: function(link_details, particletype) {
+            var viz = this;
+            // Line is too short to animate things along
+            var distance = Math.sqrt(Math.pow((link_details.target.fx || link_details.target.x) - (link_details.source.fx || link_details.source.x), 2) + 
+                                    Math.pow((link_details.target.fy ||link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
+            if (distance < (link_details.source.radius + link_details.target.radius)) {return;} 
+            // The duration needs to also consider the length of the line (ms per pixel)
+            // This isnt perfect becuase numerous forces affect the length of the line, but its close enough.
+            var base_time = distance * Number(Math.max(1, Math.min(100, link_details.speed)));
+            // add some jitter to the starting position
+            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
+            base_jitter = Number(base_jitter);
+            if (Number(link_details[particletype]) === 0 || viz.particleMultiplier === 0) { return; }
+            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
+            //console.log("particle_dispatch_delay is", particle_dispatch_delay);
+            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+            link_details.particleTimeout = setTimeout(function(){
+                viz.doParticle(link_details, particletype, base_time, base_jitter);
+                // Start an ongoing timer for this particle
+                link_details.particleInterval = setInterval(function(){
+                    viz.doParticle(link_details, particletype, base_time, base_jitter);
+                }, particle_dispatch_delay);
+            }, (Math.random() * particle_dispatch_delay));
+        },
+
+        // Creates the actual particle, transition it with random speed and destroy it.
+        doParticle: function(link_details, particletype, base_time, base_jitter){
+            var viz = this;
+            // Do not start particles until stuff slows its movement
+            if (viz.isDragging || viz.startParticlesTime > (new Date).getTime()) { return; }
+            // if browser window isnt visible then dont draw
+            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
+                return;
+            }
+            var jitter = (base_jitter * Math.random()) - (base_jitter / 2);
+            viz.particlegroup.append("circle").attr("cx", (jitter + link_details.source.x)).attr("cy", (jitter + link_details.source.y)).attr("r", viz.config.particle_size).attr("fill", viz.particleTypes[particletype]).transition()
+                // Randomise the speed of the particles
+                .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
+                .ease(d3.easeLinear)
+                .attr("cx", (jitter + link_details.target.x)).attr("cy", (jitter + link_details.target.y))
+                .remove();
+        },
+
+        doDraw: function() {
             var viz = this;
             // Dont draw unless this is a real element under body
             if (! viz.$container_wrap.parents().is("body")) {
                 return;
             }
-            if (!(viz.$container_wrap.height() > 0)) {
+            if (viz.$container_wrap.height() <= 0) {
                 return;
             }
 
@@ -183,56 +360,34 @@ function(
             }
 
             if (invalidRows > 0) {
-                console.log("Rows skipped becuase missing mandatory field: ", invalidRows);
+                console.log("Rows skipped because missing mandatory field: ", invalidRows);
             }
             if (viz.nodes.length > Number(viz.config.maxnodes)) {
                 viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodes.length + ", Limit: " + viz.config.maxnodes + "). </div>");
                 return;
             }
 
-            var height = viz.$container_wrap.height();
-            var width = viz.$container_wrap.width();
+            viz.height = viz.$container_wrap.height();
+            viz.width = viz.$container_wrap.width();
             var svg = d3.create("svg")
                 .style("box-sizing", "border-box")
-                .attr("viewBox", [0, 0, width, height]);
+                .attr("viewBox", [0, 0, viz.width, viz.height]);
             
             viz.$container_wrap.empty().append(svg.node());
-            var svg_node = viz.$container_wrap.children();
+            viz.positionsButton = $("<span><i class='far fa-clipboard'></i> Copy positions to clipboard</span>").css({"position":"absolute","top":"-4px","left":"40px","color":"#5c6773","cursor":"pointer","opacity": "0"}).appendTo(viz.$container_wrap).on("click", function(){
+                viz.dumpPositions();
+            }).on("mouseover",function(){
+                viz.positionsButton.css({"opacity": "1"});
+            }).on("mouseout", function(){
+                clearTimeout(viz.positionsButtonTimeout);
+                viz.positionsButtonTimeout = setTimeout(function(){
+                    viz.positionsButton.css("opacity",0);
+                }, 5000);
+            });
             svg.attr("width", (viz.$container_wrap.width() - 20) + "px").attr("height", (viz.$container_wrap.height() - 20) + "px");
 
-            var isDragging = false;
-            var delayUntilParticles = 2000;
-            var startParticlesTime = (new Date).getTime() + delayUntilParticles;
-
-            function drag(simulation) {
-                function dragstarted(d) {
-                    particlegroup.selectAll("circle").remove();
-                    isDragging = true;
-                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                    
-                    d.fx = d.x;
-                    d.fy = d.y;
-                }
-
-                function dragged(d) {
-                    d.fx = d3.event.x;
-                    d.fy = d3.event.y;
-                }
-
-                function dragended(d) {
-                    isDragging = false;
-                    startParticlesTime = (new Date).getTime() + delayUntilParticles;
-                    if (!d3.event.active) simulation.alphaTarget(0);
-                    //d.fx = null;
-                    //d.fy = null;
-                    setTimeout(dumpPositions, 1000);
-                }
-
-                return d3.drag()
-                    .on("start", dragstarted)
-                    .on("drag", dragged)
-                    .on("end", dragended);
-            }
+            viz.isDragging = false;
+            viz.startParticlesTime = (new Date).getTime() + viz.delayUntilParticles;
 
             var shadow_id = viz.instance_id + "_" + (viz.instance_id_ctr++);
             // This doesnt work in IE11 and Edge: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/18760697/
@@ -245,153 +400,54 @@ function(
             filter.append("feColorMatrix").attr("in", shadow_id + "A").attr("type","matrix").attr("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 " + (viz.config.node_shadow === "show" ? 0.35 : 0) + " 0").attr("result", shadow_id + "B");
             filter.append("feOffset").attr("in", shadow_id + "B").attr("dx", 0).attr("dy", 1).attr("result", shadow_id + "C");
             var feMerge = filter.append("feMerge");
-            feMerge.append("feMergeNode").attr("in", shadow_id + "C")
+            feMerge.append("feMergeNode").attr("in", shadow_id + "C");
             feMerge.append("feMergeNode").attr("in", "SourceGraphic");
 
-            var allTimers = [];
-// TODO stop all timers after 10 minutes
-// setTimeout(function(){
-//     for (var i = 0; i < allTimers.length; i++) {
-//         console.log("clearing timer: ", allTimers[i]);
-//         clearTimeout(allTimers[i]);
-//     }    
-// }, 600000)
-
             // These are the forces that move to the center
-            const forceX = d3.forceX(width / 2).strength(Number(viz.config.node_center_force))
-            const forceY = d3.forceY(height / 2).strength(Number(viz.config.node_center_force))
+            var forceX = d3.forceX(viz.width / 2).strength(Number(viz.config.node_center_force));
+            var forceY = d3.forceY(viz.height / 2).strength(Number(viz.config.node_center_force));
 
             // Force testing playground: https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03
-            const simulation = d3.forceSimulation(viz.nodes)
+            var simulation = d3.forceSimulation(viz.nodes)
                 .force("link", d3.forceLink(viz.links).id(function(d) { return d.id; }).distance(function(d) { 
                     return Number(d.distance) + d.source.radius + d.target.radius;
                 }))
                 .force("charge", d3.forceManyBody().strength(Number(viz.config.node_repel_force) * -1))
                 .force('x', forceX)
-                .force('y',  forceY)
-                // .force('collision', d3.forceCollide().radius(function(d) {
-                //     return d.radius;
-                // }))
-                ;
+                .force('y',  forceY);
 
-            var partdefs = {
-                good:  viz.config.particle_good_color,
-                warn:  viz.config.particle_warn_color,
-                error: viz.config.particle_error_color,
-            };
+            viz.linkgroup = svg.append("g");
+            viz.particlegroup = svg.append("g");
+            viz.nodegroup = svg.append("g")
+                .attr("stroke", viz.config.node_border_color)
+                .attr("stroke-width", viz.config.node_border_width);
 
-            const linkgroup = svg.append("g");
-            const particlegroup = svg.append("g");
-
-            // TODO need to add normalisation of all numbers 
-
-            // Create circle particle, transition it with random speed and destroy it.
-            function startParticles(link_details, particletype) {
-                // Line is too short to animate things along
-                if (Number(link_details.distance) < 2) {return;} 
-                // The duration needs to also consider the length of the line (ms per pixel)
-                // This isnt perfect becuase numerous forces affect the length of the line, but its close enough.
-                var base_time = Number(link_details.distance) * Number(Math.max(1, Math.min(100, link_details.speed)));
-                // add some jitter to the starting position
-                var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
-                base_jitter = Number(base_jitter);
-                if (Number(link_details[particletype]) === 0 || viz.particleMultiplier === 0) { return; }
-                var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-                //console.log("particle_dispatch_delay is", particle_dispatch_delay);
-                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-                setTimeout(function(){
-                    doParticle(link_details, particletype, base_time, base_jitter);
-                    // Start an ongoing timer for this particle
-                    allTimers.push(setInterval(function(){
-                        doParticle(link_details, particletype, base_time, base_jitter);
-                    }, particle_dispatch_delay));
-                }, (Math.random() * particle_dispatch_delay));
-            }
-
-            function doParticle(link_details, particletype, base_time, base_jitter){
-                // Do not start particles until stuff slows its movement
-                if (isDragging || startParticlesTime > (new Date).getTime()) { return; }
-                // if browser window isnt visible then dont draw
-                if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
-                    return;
-                }
-                var jitter = (base_jitter * Math.random()) - (base_jitter / 2);
-                particlegroup.append("circle").attr("cx", (jitter + link_details.source.x)).attr("cy", (jitter + link_details.source.y)).attr("r", viz.config.particle_size).attr("fill", partdefs[particletype]).transition()
-                    // Randomise the speed of the particles
-                    .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
-                    .ease(d3.easeLinear)
-                    .attr("cx", (jitter + link_details.target.x)).attr("cy", (jitter + link_details.target.y))
-                    .remove();
-            }
-
-            function dumpPositions(){
-                viz.nodePos = {};
-                node.each(function(d, i){ 
-                    viz.nodePos[d.id] = "" + Math.round(d.x / width * 100) + "," + Math.round(d.y / height * 100);
-                    if (i === viz.nodes.length - 1){
-                        console.log(JSON.stringify(viz.nodePos));
-                    }
-                });
-            }
-
-            // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
-            function loadPositions(){
-                var positions = {};
-                var xy;
-                if (viz.config.positions !== "") {
-                    try {
-                        positions = JSON.parse(viz.config.positions);
-                    } catch (e) {
-                        console.log("Unable to load initial positioning as it isnt a valid JSON array");
-                    }
-                }
-                for (var i = 0; i < viz.nodes.length; i++){
-                    if (positions.hasOwnProperty(viz.nodes[i].id)) {
-                        xy = positions[viz.nodes[i].id].split(",");
-                        viz.nodes[i].xperc = xy[0];
-                        viz.nodes[i].yperc = xy[1];
-                    } 
-                    // its possible there might be an xperc and no yperc if it was specifed in the data
-                    if (viz.nodes[i].xperc !== "") {
-                        // .fx sets a fixed x position
-                        viz.nodes[i].fx = viz.nodes[i].xperc / 100 * width;
-                    } else {
-                        // set a default xposition that will be affected by forces
-                        viz.nodes[i].x = width / 2;
-                    }
-                    if (viz.nodes[i].yperc !== "") {
-                        viz.nodes[i].fy = viz.nodes[i].yperc / 100 * height;
-                    } else {
-                        viz.nodes[i].y = height / 2;
-                    }
-                }
-            }
-            loadPositions();
+            viz.loadPositions();
 
             // Create the links (edges) as d3 objects
-            const link = linkgroup
+            var link = viz.linkgroup
                 .attr("stroke-opacity", viz.config.link_opacity)
                 .selectAll("line")
-                .data(viz.links)
+                .data(viz.links /*, function(d){ return d.id}*/ )
                 .join("line")
                     .attr("stroke", function(d){ return d.color; })
                     .attr("stroke-width", function(d){ return d.width; })
                     .each(function(d){
-                        for (var particletype in partdefs) {
-                            if (partdefs.hasOwnProperty(particletype)) {
-                                if (d[particletype] > 0) {
-                                    startParticles(d, particletype);
+                        if (viz.config.mode === "particles") {
+                            for (var particletype in viz.particleTypes) {
+                                if (viz.particleTypes.hasOwnProperty(particletype)) {
+                                    if (d[particletype] > 0) {
+                                        viz.startParticles(d, particletype);
+                                    }
                                 }
                             }
                         }
                     });
             
-            // TODO it should be possible to group nodes
-            const node = svg.append("g")
-                .attr("stroke", viz.config.node_border_color)
-                .attr("stroke-width", viz.config.node_border_width)
+            // Add the node group element to the page
+            var node = viz.nodegroup
                 .selectAll("g")
-                .data(viz.nodes)
+                .data(viz.nodes, function(d){ return d.id; })
                 .join("g")
                     .attr("x", function(d){ return d.x; })
                     .attr("y", function(d){ return d.y; })
@@ -400,7 +456,7 @@ function(
                         d.fx = null;
                         d.fy = null;
                     })
-                    .call(drag(simulation));
+                    .call(viz.drag(simulation));
 
             // icon types - setup as font awesome icons
             node.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
@@ -425,6 +481,7 @@ function(
                 .attr("filter", "url(#" + shadow_id + ")")
                 .style("opacity", function(d){ return d.opacity; });
 
+            // add the text label to the icon/rect
             node.append("text")
                 .text(function(d) { return d.label; })
                 .attr("x", function(d){ return d.width / 2 + Number(d.labelx); })
@@ -433,16 +490,18 @@ function(
                 .style("text-anchor", "middle")
                 .attr("stroke", viz.config.node_text_color);
 
+            // Add tooltip
             node.append("title")
                 .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
 
+            // When stuff is dragged, or when the forces are being simulated, move items
             simulation.on("tick", function() {
                 node.attr("transform", function(d) {
-                        // Prevent stuff going outside view
-                        d.x = Math.max(d.radius, Math.min(width - d.radius, d.x));
-                        d.y = Math.max(d.radius, Math.min(height - d.radius, d.y));
+                        // Prevent stuff going outside view. Stuff ca
+                        d.x = Math.max(0, Math.min(viz.width - 0, d.x));
+                        d.y = Math.max(0, Math.min(viz.height - 0, d.y));
                         return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")";
-                    })
+                    });
 
                 link.attr("x1", function(d){ return d.source.x; })
                     .attr("y1", function(d){ return d.source.y; })
