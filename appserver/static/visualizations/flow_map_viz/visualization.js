@@ -77,7 +77,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            viz.config = {
 	                maxnodes: "100",
-	                maxparticles: "1000",
+	                maxparticles: "100",
 	                stop_when_not_visible: "yes",
 	                node_repel_force: "100",
 	                node_center_force: "0.001",
@@ -122,8 +122,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                error: viz.config.particle_error_color,
 	            };
 
-	            viz.delayUntilParticles = 2000;
-
 	            viz.data = data;
 	            viz.scheduleDraw();
 	        },
@@ -137,44 +135,50 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }, 300);
 	        },
 
-	        newNode: function(name, opts, order){
+	        newNode: function(id, opts, order){
 	            var viz = this;
-	            if (! viz.nodesMap.hasOwnProperty(name)){
-	                viz.nodesMap[name] = {
-	                    "id": name,
-	                    "order": order,
-	                    "label": opts.hasOwnProperty("label") ? opts.label : name,
-	                    "labelx": opts.hasOwnProperty("labelx") ? opts.labelx : "0",
-	                    "labely": opts.hasOwnProperty("labely") ? opts.labely : "0",
-	                    "height": opts.hasOwnProperty("height") && opts.height !== "" ? Number(opts.height) : Number(viz.config.node_height),
-	                    "width": opts.hasOwnProperty("width") && opts.width !== "" ? Number(opts.width) : Number(viz.config.node_width),
-	                    "color": opts.hasOwnProperty("color") && opts.color !== "" ? opts.color : viz.config.node_bg_color,
-	                    "rx": opts.hasOwnProperty("radius") && opts.radius !== "" ? opts.radius : viz.config.node_radius,
-	                    "opacity": opts.hasOwnProperty("opacity") ? opts.opacity : "",
-	                    "xperc": opts.hasOwnProperty("x") ? opts.x : "",
-	                    "yperc": opts.hasOwnProperty("y") ? opts.y : "",
-	                    "icon": opts.hasOwnProperty("icon") ? opts.icon : "",
-	                };
-	                viz.nodesMap[name].radius = Math.min(viz.nodesMap[name].height/2, viz.nodesMap[name].width/2);
-	                viz.nodes.push(viz.nodesMap[name]);
+	            if (! viz.nodeDataMap.hasOwnProperty(id)){
+	                viz.nodeDataMap[id] = {};
+	                viz.nodeData.push(viz.nodeDataMap[id]);
 	            }
+	            viz.nodeDataMap[id].id = id;
+	            viz.nodeDataMap[id].drawIteration = viz.drawIteration;
+	            viz.nodeDataMap[id].order = order;
+	            viz.nodeDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : id;
+	            viz.nodeDataMap[id].labelx = opts.hasOwnProperty("labelx") ? opts.labelx : "0";
+	            viz.nodeDataMap[id].labely = opts.hasOwnProperty("labely") ? opts.labely : "0";
+	            viz.nodeDataMap[id].height = opts.hasOwnProperty("height") && opts.height !== "" ? Number(opts.height) : Number(viz.config.node_height);
+	            viz.nodeDataMap[id].width = opts.hasOwnProperty("width") && opts.width !== "" ? Number(opts.width) : Number(viz.config.node_width);
+	            viz.nodeDataMap[id].color = opts.hasOwnProperty("color") && opts.color !== "" ? opts.color : viz.config.node_bg_color;
+	            viz.nodeDataMap[id].rx = opts.hasOwnProperty("radius") && opts.radius !== "" ? opts.radius : viz.config.node_radius;
+	            viz.nodeDataMap[id].opacity = opts.hasOwnProperty("opacity") ? opts.opacity : "";
+	            viz.nodeDataMap[id].xperc = opts.hasOwnProperty("x") ? opts.x : "";
+	            viz.nodeDataMap[id].yperc = opts.hasOwnProperty("y") ? opts.y : "";
+	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
+	            viz.nodeDataMap[id].radius = Math.min(viz.nodeDataMap[id].height/2, viz.nodeDataMap[id].width/2);
 	        },
 
 	        newLink: function(opts){
 	            var viz = this;
-	            var ln = {
-	                "source": opts.from, 
-	                "target": opts.to, 
-	                "good": opts.hasOwnProperty("good") ? Number(opts.good) : 0,
-	                "warn": opts.hasOwnProperty("warn") ? Number(opts.warn) : 0,
-	                "error": opts.hasOwnProperty("error") ? Number(opts.error) : 0,
-	                "color": opts.hasOwnProperty("color") ? opts.color : viz.config.link_color,
-	                "width": opts.hasOwnProperty("width") ? opts.width : viz.config.link_width,
-	                "distance": opts.hasOwnProperty("distance") ? opts.distance : viz.config.link_distance,
-	                "speed": opts.hasOwnProperty("speed") ? opts.speed : viz.config.link_speed,
-	            };
-	            viz.links.push(ln);
-	            viz.totalParticles = ln.good + ln.warn + ln.error;
+	            var id = opts.from + "---" + opts.to;
+	            if (! viz.linkDataMap.hasOwnProperty(id)){
+	                viz.linkDataMap[id] = {
+	                    timeouts: {},
+	                    intervals: {},
+	                };
+	                viz.linkData.push(viz.linkDataMap[id]);
+	            }
+	            viz.linkDataMap[id].id = id;
+	            viz.linkDataMap[id].drawIteration = viz.drawIteration;
+	            viz.linkDataMap[id].source = opts.from;
+	            viz.linkDataMap[id].target = opts.to;
+	            viz.linkDataMap[id].good = opts.hasOwnProperty("good") ? Number(opts.good) : 0;
+	            viz.linkDataMap[id].warn = opts.hasOwnProperty("warn") ? Number(opts.warn) : 0;
+	            viz.linkDataMap[id].error = opts.hasOwnProperty("error") ? Number(opts.error) : 0;
+	            viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.config.link_color;
+	            viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.config.link_width;
+	            viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.config.link_distance;
+	            viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.config.link_speed;
 	        },
 
 	        // Add hander for dragging. Anything dragged will get a fixed position
@@ -182,7 +186,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            return d3.drag()
 	                .on("start", function(d) {
-	                    viz.particlegroup.selectAll("circle").remove();
+	                    viz.particleGroup.selectAll("circle").remove();
 	                    viz.isDragging = true;
 	                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
 	                    d.fx = d.x;
@@ -194,7 +198,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                })
 	                .on("end", function(d) {
 	                    viz.isDragging = false;
-	                    viz.startParticlesTime = (new Date).getTime() + viz.delayUntilParticles;
+	                    clearTimeout(viz.startParticlesTimeout);
+	                    viz.startParticlesTimeout = setTimeout(function(){
+	                        // do all particles again
+	                        viz.startParticles();
+	                    }, viz.delayUntilParticles);
 	                    if (!d3.event.active) simulation.alphaTarget(0);
 	                    viz.positionsButton.css("opacity",1);
 	                    clearTimeout(viz.positionsButtonTimeout);
@@ -253,11 +261,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        dumpPositions: function(){
 	            var viz = this;
 	            viz.nodePos = {};
-	            for (var i = 0; i < viz.nodes.length; i++){
-	                var d = viz.nodes[i];
+	            for (var i = 0; i < viz.nodeData.length; i++){
+	                var d = viz.nodeData[i];
 	                // TODO does this work or need to store fx/fy
-	                viz.nodePos[d.id] = "" + Math.round(d.x / viz.width * 100) + "," + Math.round(d.y / viz.height * 100);
-	                if (i === viz.nodes.length - 1){
+	                viz.nodePos[d.id] = "" + Math.round(d.x / viz.config.containerWidth * 100) + "," + Math.round(d.y / viz.config.containerHeight * 100);
+	                if (i === viz.nodeData.length - 1){
 	                    var dump = JSON.stringify(viz.nodePos);
 	                    console.log(dump.substr(1,dump.length-2));
 	                    viz.copyTextToClipboard(dump.substr(1,dump.length-2));
@@ -268,59 +276,94 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
 	        loadPositions: function(){
 	            var viz = this;
-	            var positions = {};
 	            var xy;
-	            if (viz.config.positions !== "") {
-	                try {
-	                    positions = JSON.parse("{" + viz.config.positions + "}");
-	                } catch (e) {
-	                    console.log("Unable to load initial positioning as it isnt a valid JSON array");
+	            if (! viz.hasOwnProperty("positions") || viz.drawIteration === 1) {
+	                viz.positions = {};
+	                if (viz.config.positions !== "") {
+	                    try {
+	                        viz.positions = JSON.parse("{" + viz.config.positions + "}");
+	                    } catch (e) {
+	                        console.log("Unable to load initial positioning as it isnt a valid JSON array");
+	                    }
 	                }
 	            }
-	            for (var i = 0; i < viz.nodes.length; i++){
-	                if (positions.hasOwnProperty(viz.nodes[i].id)) {
-	                    xy = positions[viz.nodes[i].id].split(",");
-	                    viz.nodes[i].xperc = xy[0];
-	                    viz.nodes[i].yperc = xy[1];
-	                } 
-	                // its possible there might be an xperc and no yperc if it was specifed in the data
-	                if (viz.nodes[i].xperc !== "") {
-	                    // .fx sets a fixed x position
-	                    viz.nodes[i].fx = viz.nodes[i].xperc / 100 * viz.width;
-	                } else {
-	                    // set a default xposition that will be affected by forces
-	                    viz.nodes[i].x = viz.width / 2;
+	            for (var i = 0; i < viz.nodeData.length; i++){
+	                // If the dashboard has updated the fx might already be set
+	                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
+	                    viz.nodeData[i].isPositioned = true;
+	                    console.log("positioning:", viz.nodeData[i]);
+	                    // Data xperc/yperc will be overridden by formatter option
+	                    if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
+	                        xy = viz.positions[viz.nodeData[i].id].split(",");
+	                        viz.nodeData[i].xperc = xy[0];
+	                        viz.nodeData[i].yperc = xy[1];
+	                    } 
+	                    if (viz.nodeData[i].xperc !== "") {
+	                        // .fx sets a fixed x position
+	                        viz.nodeData[i].fx = viz.nodeData[i].xperc / 100 * viz.config.containerWidth;
+	                    } else {
+	                        // set a default xposition that will be affected by forces
+	                        viz.nodeData[i].x = viz.config.containerWidth / 2;
+	                    }
+	                    if (viz.nodeData[i].yperc !== "") {
+	                        viz.nodeData[i].fy = viz.nodeData[i].yperc / 100 * viz.config.containerHeight;
+	                    } else {
+	                        viz.nodeData[i].y = viz.config.containerHeight / 2;
+	                    }
 	                }
-	                if (viz.nodes[i].yperc !== "") {
-	                    viz.nodes[i].fy = viz.nodes[i].yperc / 100 * viz.height;
-	                } else {
-	                    viz.nodes[i].y = viz.height / 2;
+	            }
+	        },
+
+	        startParticles: function() {
+	            var viz = this;
+	            if (viz.particleMultiplier === 0) {
+	                return;
+	            }
+	            // TODO convert to normal d3 function calls?
+	            for (var i = 0; i < viz.linkData.length; i++) {
+	                if (viz.config.mode === "particles") {
+	                    for (var particletype in viz.particleTypes) {
+	                        if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                            viz.startParticleGroup(viz.linkData[i], particletype);
+	                        }
+	                    }
 	                }
 	            }
 	        },
 
 	        // Create circle particle creator, 
 	        // Each link can have three of these for good/warn/error particles
-	        startParticles: function(link_details, particletype) {
+	        startParticleGroup: function(link_details, particletype) {
 	            var viz = this;
-	            // Line is too short to animate things along
+	            // Stop any existing timers
+	            clearTimeout(link_details.timeouts[particletype]);
+	            clearInterval(link_details.intervals[particletype]);
+	            if (link_details[particletype] <= 0) {
+	                //console.log("no particles for : ", link_details, particletype);
+	                return;
+	            }
+	            // calculate distance between two points
 	            var distance = Math.sqrt(Math.pow((link_details.target.fx || link_details.target.x) - (link_details.source.fx || link_details.source.x), 2) + 
-	                                    Math.pow((link_details.target.fy ||link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
-	            if (distance < (link_details.source.radius + link_details.target.radius)) {return;} 
+	                                     Math.pow((link_details.target.fy || link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
+	            // Line is too short to animate anything meaningful
+	            if (distance < (link_details.source.radius + link_details.target.radius)) {
+	                //console.log("line is too short to animate: ", link_details, distance);
+	                return;
+	            } 
+	            console.log("starting particles for ", link_details, particletype);
 	            // The duration needs to also consider the length of the line (ms per pixel)
 	            // This isnt perfect becuase numerous forces affect the length of the line, but its close enough.
 	            var base_time = distance * Number(Math.max(1, Math.min(100, link_details.speed)));
 	            // add some jitter to the starting position
 	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
 	            base_jitter = Number(base_jitter);
-	            if (Number(link_details[particletype]) === 0 || viz.particleMultiplier === 0) { return; }
 	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
 	            //console.log("particle_dispatch_delay is", particle_dispatch_delay);
 	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-	            link_details.particleTimeout = setTimeout(function(){
+	            link_details.timeouts[particletype] = setTimeout(function(){
 	                viz.doParticle(link_details, particletype, base_time, base_jitter);
 	                // Start an ongoing timer for this particle
-	                link_details.particleInterval = setInterval(function(){
+	                link_details.intervals[particletype] = setInterval(function(){
 	                    viz.doParticle(link_details, particletype, base_time, base_jitter);
 	                }, particle_dispatch_delay);
 	            }, (Math.random() * particle_dispatch_delay));
@@ -330,22 +373,51 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        doParticle: function(link_details, particletype, base_time, base_jitter){
 	            var viz = this;
 	            // Do not start particles until stuff slows its movement
-	            if (viz.isDragging || viz.startParticlesTime > (new Date).getTime()) { return; }
+	            if (viz.isDragging) { return; }
 	            // if browser window isnt visible then dont draw
 	            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
 	                return;
 	            }
 	            var jitter = (base_jitter * Math.random()) - (base_jitter / 2);
-	            viz.particlegroup.append("circle").attr("cx", (jitter + link_details.source.x)).attr("cy", (jitter + link_details.source.y)).attr("r", viz.config.particle_size).attr("fill", viz.particleTypes[particletype]).transition()
-	                // Randomise the speed of the particles
-	                .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
-	                .ease(d3.easeLinear)
-	                .attr("cx", (jitter + link_details.target.x)).attr("cy", (jitter + link_details.target.y))
-	                .remove();
+	            viz.particleGroup.append("circle")
+	                .attr("cx", (jitter + link_details.source.x))
+	                .attr("cy", (jitter + link_details.source.y))
+	                .attr("r", viz.config.particle_size)
+	                .attr("fill", viz.particleTypes[particletype])
+	                .transition()
+	                    // Randomise the speed of the particles
+	                    .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
+	                    .ease(d3.easeLinear)
+	                    .attr("cx", (jitter + link_details.target.x)).attr("cy", (jitter + link_details.target.y))
+	                    .remove();
+	        },
+
+	        removeParticles: function(link_details) {
+	            var viz = this;
+	            for (var particletype in viz.particleTypes) {
+	                if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                    clearTimeout(link_details.timeouts[particletype]);
+	                    clearInterval(link_details.intervals[particletype]);
+	                }
+	            }
+	        },
+
+	        doRemove: function(){
+	            var viz = this;
+	            delete viz.drawIteration;
+	            if (viz.hasOwnProperty("linkData")) {
+	                for (var i = 0; i < viz.linkData.length; i++) {
+	                    viz.removeParticles(viz.linkData[i]);
+	                }
+	            }
 	        },
 
 	        doDraw: function() {
 	            var viz = this;
+	            var invalidRows = 0;
+	            var nodeOrder = 1;
+	            var nodesLoose = {};
+
 	            // Dont draw unless this is a real element under body
 	            if (! viz.$container_wrap.parents().is("body")) {
 	                return;
@@ -354,13 +426,30 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                return;
 	            }
 
-	            var invalidRows = 0;
-	            var nodesLoose = {};
-	            var nodeOrder = 1;
-	            viz.nodesMap = {};
-	            viz.nodes = [];
-	            viz.links = [];
-	            viz.totalParticles = 0;
+	            // Keep track of the container size the config used so we know if we need to redraw the whole page
+	            viz.config.containerHeight = viz.$container_wrap.height();
+	            viz.config.containerWidth = viz.$container_wrap.width();
+	            var serialised = JSON.stringify(viz.config);
+	            if (viz.alreadyDrawn !== serialised) {
+	                console.log("conf changed", serialised, viz.alreadyDrawn);
+	                viz.doRemove();
+	                viz.alreadyDrawn = serialised;
+	            }
+
+	            if (! viz.hasOwnProperty("drawIteration") || ! viz.hasOwnProperty("svg")) {
+	                viz.drawIteration = 0;
+	            }
+	            viz.drawIteration++;
+	console.log("it is iteration", viz.drawIteration);
+	            if (viz.drawIteration === 1) {
+	                viz.nodeDataMap = {};
+	                viz.linkDataMap = {};
+	                viz.nodeData = [];
+	                viz.linkData = [];
+	                viz.delayUntilParticles = 2000;
+	                viz.isDragging = false;
+	            }
+
 	            // loop through data
 	            for (var l = 0; l < viz.data.results.length; l++) {
 	                // If it has "from" and "to" its a link (edge)
@@ -368,20 +457,40 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    nodesLoose[viz.data.results[l].from] = nodeOrder++;
 	                    nodesLoose[viz.data.results[l].to] = nodeOrder++;
 	                    viz.newLink(viz.data.results[l]);
-
 	                // If it doesnt have a "from" and a "to" but it has a "node" then its a node row
 	                } else if (viz.data.results[l].hasOwnProperty("node") && viz.data.results[l].node !== "") {
-	                    viz.newNode(viz.data.results[l].node, viz.data.results[l], nodeOrder);
+	                    viz.newNode(viz.data.results[l].node, viz.data.results[l], nodeOrder++);
 	                } else {
 	                    invalidRows++;
 	                }
 	            }
+
 	            // make sure we create any nodes that havent been explicity defined, but that are used for links
 	            for (var loosenode in nodesLoose) {
 	                if (nodesLoose.hasOwnProperty(loosenode)){
 	                    viz.newNode(loosenode, {}, nodesLoose[loosenode]);
 	                }
 	            }
+
+	            // Determine what nodes are to be removed
+	            for (var j = 0; j < viz.nodeData.length; j++){
+	                if (viz.drawIteration !== viz.nodeData[j].drawIteration) {
+	                    console.log("node has been removed", viz.nodeData[j]);
+	                    // do we need to do anything when a node is removed?
+	                }
+	            }
+
+	            // count how many particles there are in total
+	            viz.totalParticles = 0;
+	            for (var k = 0; k < viz.linkData.length; k++) {
+	                viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
+	                if (viz.drawIteration !== viz.linkData[k].drawIteration) {
+	                    console.log("link has been removed", viz.linkData[k]);
+	                    // link has been removed, stop particles 
+	                    viz.removeParticles(viz.linkData[k]);
+	                }
+	            }
+
 	            viz.particleMax = viz.config.maxparticles / 300;
 	            // If zero, hide all particles
 	            if (viz.particleMax === 0 || viz.totalParticles === 0) {
@@ -393,107 +502,115 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.particleMultiplier = viz.particleMax / viz.totalParticles;
 	            }
 
-	            // Sort the nodes list back into the order it arrived
-	            viz.nodes.sort(function(a,b){
+	            // Sort the lists back into the order it arrived
+	            viz.nodeData.sort(function(a,b){
 	                return a.order - b.order;
 	            });
-
-	// TODO will need to redraw if the number of nodes changed
-	            if (viz.nodes.length ===  0 && invalidRows > 0) {
-	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Data is missing a mandatory columns ('from', 'to')</div>");
-	                return;
-	            }
 
 	            if (invalidRows > 0) {
 	                console.log("Rows skipped because missing mandatory field: ", invalidRows);
 	            }
-	            if (viz.nodes.length > Number(viz.config.maxnodes)) {
-	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodes.length + ", Limit: " + viz.config.maxnodes + "). </div>");
+
+	            // Data is missing a mandatory columns 
+	            if (viz.nodeData.length ===  0 && invalidRows > 0) {
+	                viz.doRemove();
+	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Data is missing a mandatory columns ('from', 'to')</div>");
 	                return;
 	            }
 
-	            viz.height = viz.$container_wrap.height();
-	            viz.width = viz.$container_wrap.width();
-	            var svg = d3.create("svg")
-	                .style("box-sizing", "border-box")
-	                .attr("viewBox", [0, 0, viz.width, viz.height]);
-	            
-	            viz.$container_wrap.empty().append(svg.node());
-	            viz.positionsButton = $("<span><i class='far fa-clipboard'></i> Copy positions to clipboard</span>").css({"position":"absolute","top":"-4px","left":"40px","color":"#5c6773","cursor":"pointer","opacity": "0"}).appendTo(viz.$container_wrap).on("click", function(){
-	                viz.dumpPositions();
-	            }).on("mouseover",function(){
-	                viz.positionsButton.css({"opacity": "1"});
-	            }).on("mouseout", function(){
-	                clearTimeout(viz.positionsButtonTimeout);
-	                viz.positionsButtonTimeout = setTimeout(function(){
-	                    viz.positionsButton.css("opacity",0);
-	                }, 5000);
-	            });
-	            svg.attr("width", (viz.$container_wrap.width() - 20) + "px").attr("height", (viz.$container_wrap.height() - 20) + "px");
+	            // Too many nodes in data
+	            if (viz.nodeData.length > Number(viz.config.maxnodes)) {
+	                viz.doRemove();
+	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodeData.length + ", Limit: " + viz.config.maxnodes + "). </div>");
+	                return;
+	            }
 
-	            viz.isDragging = false;
-	            viz.startParticlesTime = (new Date).getTime() + viz.delayUntilParticles;
+	            // Add SVG to the page
+	            if (viz.drawIteration === 1) {
+	                // TODO do a we need a margin around our item? (if so need to set width/height smaller)
+	                viz.svg = d3.create("svg").style("box-sizing", "border-box").attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
+	                viz.svg.attr("width", viz.config.containerWidth + "px").attr("height", viz.config.containerHeight + "px");
+	                viz.$container_wrap.empty().append(viz.svg.node());
+	                // Add the drop shadow with IE11 and edge support
+	                viz.shadow_id = viz.instance_id + "_" + (viz.instance_id_ctr++);
+	                // This doesnt work in IE11 and Edge: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/18760697/
+	                //var filter = svg.append("filter").attr("id", shadow_id).append("feDropShadow").attr("flood-opacity", viz.config.shadow === "show" ? 0.3 : 0).attr("dx", 0).attr("dy", 1);
+	                var defs = viz.svg.append("defs");
+	                // height=120% so that the shadow is not clipped
+	                var filter = defs.append("filter").attr("id", viz.shadow_id).attr("height", "120%");
+	                // From: http://bl.ocks.org/cpbotha/raw/5200394/dropshadow.js with tweaks.
+	                filter.append("feGaussianBlur").attr("in", "SourceAlpha").attr("stdDeviation", 2).attr("result", viz.shadow_id + "A");
+	                filter.append("feColorMatrix").attr("in", viz.shadow_id + "A").attr("type","matrix").attr("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 " + (viz.config.node_shadow === "show" ? 0.35 : 0) + " 0").attr("result", viz.shadow_id + "B");
+	                filter.append("feOffset").attr("in", viz.shadow_id + "B").attr("dx", 0).attr("dy", 1).attr("result", viz.shadow_id + "C");
+	                var feMerge = filter.append("feMerge");
+	                feMerge.append("feMergeNode").attr("in", viz.shadow_id + "C");
+	                feMerge.append("feMergeNode").attr("in", "SourceGraphic");
 
-	            var shadow_id = viz.instance_id + "_" + (viz.instance_id_ctr++);
-	            // This doesnt work in IE11 and Edge: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/18760697/
-	            //var filter = svg.append("filter").attr("id", shadow_id).append("feDropShadow").attr("flood-opacity", viz.config.shadow === "show" ? 0.3 : 0).attr("dx", 0).attr("dy", 1);
-	            var defs = svg.append("defs");
-	            // height=120% so that the shadow is not clipped
-	            var filter = defs.append("filter").attr("id", shadow_id).attr("height", "120%");
-	            // From: http://bl.ocks.org/cpbotha/raw/5200394/dropshadow.js with tweaks.
-	            filter.append("feGaussianBlur").attr("in", "SourceAlpha").attr("stdDeviation", 2).attr("result", shadow_id + "A");
-	            filter.append("feColorMatrix").attr("in", shadow_id + "A").attr("type","matrix").attr("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 " + (viz.config.node_shadow === "show" ? 0.35 : 0) + " 0").attr("result", shadow_id + "B");
-	            filter.append("feOffset").attr("in", shadow_id + "B").attr("dx", 0).attr("dy", 1).attr("result", shadow_id + "C");
-	            var feMerge = filter.append("feMerge");
-	            feMerge.append("feMergeNode").attr("in", shadow_id + "C");
-	            feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+	                // Add groups in the correct order for layering
+	                viz.linkGroup = viz.svg.append("g")
+	                    .attr("stroke-opacity", viz.config.link_opacity);
+	                viz.particleGroup = viz.svg.append("g");
+	                viz.nodeGroup = viz.svg.append("g")
+	                    .attr("stroke", viz.config.node_border_color)
+	                    .attr("stroke-width", viz.config.node_border_width);
 
-	            // These are the forces that move to the center
-	            var forceX = d3.forceX(viz.width / 2).strength(Number(viz.config.node_center_force));
-	            var forceY = d3.forceY(viz.height / 2).strength(Number(viz.config.node_center_force));
+	                // Add a button that allows copying the current positions to the clipboard
+	                viz.positionsButton = $("<span><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
+	                    .css({"position":"absolute","top":"-4px","left":"40px","color":"#5c6773","cursor":"pointer","opacity": "0"})
+	                    .appendTo(viz.$container_wrap)
+	                    .on("click", function(){
+	                        viz.dumpPositions();
+	                    }).on("mouseover",function(){
+	                        viz.positionsButton.css({"opacity": "1"});
+	                    }).on("mouseout", function(){
+	                        clearTimeout(viz.positionsButtonTimeout);
+	                        viz.positionsButtonTimeout = setTimeout(function(){
+	                            viz.positionsButton.css("opacity",0);
+	                        }, 5000);
+	                    });
 
-	            // Force testing playground: https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03
-	            var simulation = d3.forceSimulation(viz.nodes)
-	                .force("link", d3.forceLink(viz.links).id(function(d) { return d.id; }).distance(function(d) { 
+	                // Apply forces
+	                // These are the forces that move to the center
+	                var forceLink = d3.forceLink(viz.linkData).id(function(d) { return d.id; }).distance(function(d) { 
 	                    return Number(d.distance) + d.source.radius + d.target.radius;
-	                }))
-	                .force("charge", d3.forceManyBody().strength(Number(viz.config.node_repel_force) * -1))
-	                .force('x', forceX)
-	                .force('y',  forceY);
+	                });
+	                var forceCharge = d3.forceManyBody().strength(Number(viz.config.node_repel_force) * -1);
+	                var forceX = d3.forceX(viz.config.containerWidth / 2).strength(Number(viz.config.node_center_force));
+	                var forceY = d3.forceY(viz.config.containerHeight / 2).strength(Number(viz.config.node_center_force));
 
-	            viz.linkgroup = svg.append("g");
-	            viz.particlegroup = svg.append("g");
-	            viz.nodegroup = svg.append("g")
-	                .attr("stroke", viz.config.node_border_color)
-	                .attr("stroke-width", viz.config.node_border_width);
+	                // Force testing playground: https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03
+	                viz.simulation = d3.forceSimulation(viz.nodeData)
+	                    .force("link", forceLink)
+	                    .force("charge", forceCharge)
+	                    .force('x', forceX)
+	                    .force('y',  forceY)
+	                    //.alphaTarget(1)
+	                    .on("tick", function() {
+	                        // When stuff is dragged, or when the forces are being simulated, move items
+	                        viz.nodeSelection.attr("transform", function(d) {
+	                                // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
+	                                d.x = Math.max(0, Math.min(viz.config.containerWidth, d.x));
+	                                d.y = Math.max(0, Math.min(viz.config.containerHeight, d.y));
+	                                return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")";
+	                            });
+	                        viz.linkSelection.attr("x1", function(d){ return d.source.x; })
+	                            .attr("y1", function(d){ return d.source.y; })
+	                            .attr("x2", function(d){ return d.target.x; })
+	                            .attr("y2", function(d){ return d.target.y; });
+	                    });
+	            }
 
 	            viz.loadPositions();
-
-	            // Create the links (edges) as d3 objects
-	            var link = viz.linkgroup
-	                .attr("stroke-opacity", viz.config.link_opacity)
-	                .selectAll("line")
-	                .data(viz.links /*, function(d){ return d.id}*/ )
-	                .join("line")
-	                    .attr("stroke", function(d){ return d.color; })
-	                    .attr("stroke-width", function(d){ return d.width; })
-	                    .each(function(d){
-	                        if (viz.config.mode === "particles") {
-	                            for (var particletype in viz.particleTypes) {
-	                                if (viz.particleTypes.hasOwnProperty(particletype)) {
-	                                    if (d[particletype] > 0) {
-	                                        viz.startParticles(d, particletype);
-	                                    }
-	                                }
-	                            }
-	                        }
-	                    });
-	            
+	// TODO below sections need to be updated for.enter() and .exit() etc
 	            // Add the node group element to the page
-	            var node = viz.nodegroup
+	            viz.nodeSelection = viz.nodeGroup
 	                .selectAll("g")
-	                .data(viz.nodes, function(d){ return d.id; })
-	                .join("g")
+	                .data(viz.nodeData, function(d){ return d.id; });
+
+
+
+	var nodeSelectionEnter = viz.nodeSelection.enter()
+	                    .append('g')
 	                    .attr("x", function(d){ return d.x; })
 	                    .attr("y", function(d){ return d.y; })
 	                    .on("dblclick", function(d){ 
@@ -501,11 +618,21 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        d.fx = null;
 	                        d.fy = null;
 	                    })
-	                    .call(viz.drag(simulation));
+	                    .call(viz.drag(viz.simulation)); //
+	nodeSelectionEnter.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; }).append("text").attr("class", "flow_map_viz-nodeicon");
+	nodeSelectionEnter.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); }).append("rect");
+	nodeSelectionEnter.append("text").attr("class", "flow_map_viz-nodelabel");
+
+
+	            // Add tooltip
+	            nodeSelectionEnter.append("title")
+	                .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
+
+	            viz.nodeSelection.exit().remove();
 
 	            // icon types - setup as font awesome icons
-	            node.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                .append("text")
+	            viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                .select(".flow_map_viz-nodeicon")
 	                .attr("class", "fas")
 	                .style('text-anchor', 'middle')
 	                .style('font-size', function(d){ return d.radius * 1.5 + "px"; })
@@ -513,21 +640,22 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .attr("y", function(d){ return d.height / 2 + d.radius / 2; } )
 	                .text(function(d){ return viz.fontAwesomeMap.hasOwnProperty(d.icon) ? viz.fontAwesomeMap[d.icon] : d.icon; })
 	                .attr("fill", function(d){ return d.color; })
-	                .attr("filter", "url(#" + shadow_id + ")")
+	                .attr("filter", "url(#" + viz.shadow_id + ")")
 	                .style("opacity", function(d){ return d.opacity; });
 
 	            // non-icons - should be rects (can be circles too with the right rx)
-	            node.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
-	                .append("rect")
+	            viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
+	                .select("rect")
 	                .attr("width", function(d){ return d.width; })
 	                .attr("height", function(d){ return d.height; })
 	                .attr("rx", function(d){ return d.rx; })
 	                .attr("fill", function(d){ return d.color; })
-	                .attr("filter", "url(#" + shadow_id + ")")
+	                .attr("filter", "url(#" + viz.shadow_id + ")")
 	                .style("opacity", function(d){ return d.opacity; });
 
 	            // add the text label to the icon/rect
-	            node.append("text")
+	            viz.nodeSelection.merge(nodeGroupsEnter)
+	                .select(".flow_map_viz-nodelabel")
 	                .text(function(d) { return d.label; })
 	                .attr("x", function(d){ return d.width / 2 + Number(d.labelx); })
 	                .attr("y", function(d){ return d.height / 2 + Number(d.labely); })
@@ -535,26 +663,30 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .style("text-anchor", "middle")
 	                .attr("stroke", viz.config.node_text_color);
 
-	            // Add tooltip
-	            node.append("title")
-	                .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
 
-	            // When stuff is dragged, or when the forces are being simulated, move items
-	            simulation.on("tick", function() {
-	                node.attr("transform", function(d) {
-	                        // Prevent stuff going outside view. Stuff ca
-	                        d.x = Math.max(0, Math.min(viz.width - 0, d.x));
-	                        d.y = Math.max(0, Math.min(viz.height - 0, d.y));
-	                        return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")";
-	                    });
 
-	                link.attr("x1", function(d){ return d.source.x; })
-	                    .attr("y1", function(d){ return d.source.y; })
-	                    .attr("x2", function(d){ return d.target.x; })
-	                    .attr("y2", function(d){ return d.target.y; });
+	            // Create the links (edges) as d3 objects
+	            viz.linkSelection = viz.linkGroup
+	                .selectAll("line")
+	                .data(viz.linkData, function(d){ return d.id; })
+	                .join("line")
+	                    .attr("stroke", function(d){ return d.color; })
+	                    .attr("stroke-width", function(d){ return d.width; });
+	            
+	            viz.linkSelection.exit().remove();
+	            
+	            clearTimeout(viz.startParticlesTimeout);
+	            viz.startParticlesTimeout = setTimeout(function(){
+	                // do all particles again
+	                viz.startParticles();
+	            }, viz.delayUntilParticles);
 
-	            });
-
+	            if (viz.drawIteration > 1) {
+	                // Update and restart the force simulation.
+	                viz.simulation.nodes(viz.nodeData);
+	                viz.simulation.force("link").links(viz.linkData);
+	                viz.simulation.alpha(0.3).restart();
+	            }
 	        },
 
 	        // Override to respond to re-sizing events
