@@ -2,7 +2,7 @@
     position:relative;
 }
 .flow_map_viz-container svg {
-    margin: 10px auto;
+    /*margin: 10px auto;*/
     display: block;
 }
 .flow_map_viz-tooltip {
@@ -27,7 +27,17 @@
     line-height: 3;
 }
 
-
+.flow_map_viz-copylink {
+    position:absolute;
+    top:-1px;
+    left:40px;
+    color:#5c6773;
+    cursor: pointer;
+    opacity: 0;
+}
+.dashboard.view-mode .flow_map_viz-copylink {
+  display: none;
+}
 
 
 

@@ -34,16 +34,16 @@ function(
                 maxnodes: "100",
                 maxparticles: "100",
                 stop_when_not_visible: "yes",
-                node_repel_force: "100",
-                node_center_force: "0.001",
+                node_repel_force: "1000",
+                node_center_force: "0.01",
                 mode: "particles",
 
-                link_speed: "10",
+                link_speed: "90",
                 link_opacity: "0.4",
                 link_distance: "200",
                 link_width: "1",
                 link_color: "#cccccc",
-                link_text_size: "12",
+                link_text_size: "10",
 
                 particle_good_color: "#1a9035",
                 particle_warn_color: "#d16f18",
@@ -57,11 +57,11 @@ function(
                 node_border_color: "#000000",
                 node_border_width: "1",
                 node_text_color: "#000000",
-                node_text_size: "14",
+                node_text_size: "12",
                 node_radius: 10,
                 node_shadow: "show",
 
-                positions: '"CDP:Parent":"57,22","Box1":"72,14","Box2":"9,23","RLS":"42,37","Lixi:in":"29,30","Lixi:out":"29,42","Unrelated1":"14,24","Unrelated2":"4,23","xPression":"96,50","Hunter":"72,9","CDP":"57,17","Equifax":"72,21","Integrity":"52,32"',
+                positions: '',
                 
             };
             // Override defaults with selected items from the UI
@@ -95,6 +95,10 @@ function(
             if (! viz.nodeDataMap.hasOwnProperty(id)){
                 viz.nodeDataMap[id] = {};
                 viz.nodeData.push(viz.nodeDataMap[id]);
+            }
+            // if the node has alraedy been updated this run then dont update it again (i.e. its a loose node)
+            if (viz.nodeDataMap[id].drawIteration === viz.drawIteration) {
+                return;
             }
             viz.nodeDataMap[id].id = id;
             viz.nodeDataMap[id].drawIteration = viz.drawIteration;
@@ -134,6 +138,12 @@ function(
             viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.config.link_width;
             viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.config.link_distance;
             viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.config.link_speed;
+            var defaultLabel = (opts.hasOwnProperty("good") && opts.good !== "" ? "Good: " + opts.good : " ") + 
+                (opts.hasOwnProperty("warn") && opts.warn !== "" ? "Warn: " + opts.warn : " ") + 
+                (opts.hasOwnProperty("error") && opts.error !== "" ? "Error: " + opts.error : "");
+            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") && opts.tooltip !== "" ? opts.tooltip : defaultLabel;
+            viz.linkDataMap[id].label = opts.hasOwnProperty("label") && opts.label !== "" ? opts.label : defaultLabel;
+            viz.linkDataMap[id].labeloffset = opts.hasOwnProperty("labeloffset") && opts.labeloffset !== "" ? opts.labeloffset : "50";
         },
 
         // Add hander for dragging. Anything dragged will get a fixed position
@@ -189,7 +199,6 @@ function(
             textArea.select();
             try {
                 var successful = document.execCommand('copy');
-                var msg = successful ? 'successful' : 'unsuccessful';
                 viz.toast('Copied to clipboard! (now paste into settings)');
             } catch (err) {
                 console.error('Fallback: Oops, unable to copy', err);
@@ -246,7 +255,6 @@ function(
                 // If the dashboard has updated the fx might already be set
                 if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
                     viz.nodeData[i].isPositioned = true;
-                    console.log("positioning:", viz.nodeData[i]);
                     // Data xperc/yperc will be overridden by formatter option
                     if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
                         xy = viz.positions[viz.nodeData[i].id].split(",");
@@ -256,14 +264,18 @@ function(
                     if (viz.nodeData[i].xperc !== "") {
                         // .fx sets a fixed x position
                         viz.nodeData[i].fx = viz.nodeData[i].xperc / 100 * viz.config.containerWidth;
+                        //viz.nodeData[i].x = viz.nodeData[i].fx;
                     } else {
                         // set a default xposition that will be affected by forces
                         viz.nodeData[i].x = viz.config.containerWidth / 2;
+                        //console.log("setting default positoin to ", viz.nodeData[i].x);
                     }
                     if (viz.nodeData[i].yperc !== "") {
                         viz.nodeData[i].fy = viz.nodeData[i].yperc / 100 * viz.config.containerHeight;
+                        //viz.nodeData[i].y = viz.nodeData[i].fy;
                     } else {
                         viz.nodeData[i].y = viz.config.containerHeight / 2;
+                        //console.log("setting default y positoin to ", viz.nodeData[i].y);
                     }
                 }
             }
@@ -305,10 +317,8 @@ function(
                 //console.log("line is too short to animate: ", link_details, distance);
                 return;
             } 
-            console.log("starting particles for ", link_details, particletype);
             // The duration needs to also consider the length of the line (ms per pixel)
-            // This isnt perfect becuase numerous forces affect the length of the line, but its close enough.
-            var base_time = distance * Number(Math.max(1, Math.min(100, link_details.speed)));
+            var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
             // add some jitter to the starting position
             var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
             base_jitter = Number(base_jitter);
@@ -395,7 +405,6 @@ function(
                 viz.drawIteration = 0;
             }
             viz.drawIteration++;
-console.log("it is iteration", viz.drawIteration);
             if (viz.drawIteration === 1) {
                 viz.nodeDataMap = {};
                 viz.linkDataMap = {};
@@ -428,21 +437,22 @@ console.log("it is iteration", viz.drawIteration);
             }
 
             // Determine what nodes are to be removed
-            for (var j = 0; j < viz.nodeData.length; j++){
+            for (var j = viz.nodeData.length - 1; j >= 0 ; j--){
                 if (viz.drawIteration !== viz.nodeData[j].drawIteration) {
-                    console.log("node has been removed", viz.nodeData[j]);
-                    // do we need to do anything when a node is removed?
+                    delete viz.nodeDataMap[viz.nodeData[j].id];
+                    viz.nodeData.splice(j, 1);
                 }
             }
 
             // count how many particles there are in total
             viz.totalParticles = 0;
-            for (var k = 0; k < viz.linkData.length; k++) {
+            for (var k = viz.linkData.length - 1; k >= 0 ; k--) {
                 viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
                 if (viz.drawIteration !== viz.linkData[k].drawIteration) {
-                    console.log("link has been removed", viz.linkData[k]);
                     // link has been removed, stop particles 
                     viz.removeParticles(viz.linkData[k]);
+                    delete viz.linkDataMap[viz.linkData[k].id];
+                    viz.linkData.splice(k, 1);
                 }
             }
 
@@ -503,15 +513,19 @@ console.log("it is iteration", viz.drawIteration);
 
                 // Add groups in the correct order for layering
                 viz.linkGroup = viz.svg.append("g")
-                    .attr("stroke-opacity", viz.config.link_opacity);
-                viz.particleGroup = viz.svg.append("g");
+                    .attr("stroke-opacity", viz.config.link_opacity)
+                    .attr("class", "flow_map_viz-links");
+                viz.particleGroup = viz.svg.append("g")
+                    .attr("class", "flow_map_viz-particles");
+                viz.linkLabelGroup = viz.svg.append("g");
+                    //.attr("stroke", "white")
+                    //.attr("stroke-width", "4px")
+                    //.attr("stroke-opacity", 0.8)               
                 viz.nodeGroup = viz.svg.append("g")
-                    .attr("stroke", viz.config.node_border_color)
-                    .attr("stroke-width", viz.config.node_border_width);
+                    .attr("class", "flow_map_viz-nodes");
 
                 // Add a button that allows copying the current positions to the clipboard
-                viz.positionsButton = $("<span><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
-                    .css({"position":"absolute","top":"-4px","left":"40px","color":"#5c6773","cursor":"pointer","opacity": "0"})
+                viz.positionsButton = $("<span class='flow_map_viz-copylink'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
                     .appendTo(viz.$container_wrap)
                     .on("click", function(){
                         viz.dumpPositions();
@@ -528,7 +542,7 @@ console.log("it is iteration", viz.drawIteration);
                 // These are the forces that move to the center
                 var forceLink = d3.forceLink(viz.linkData).id(function(d) { return d.id; }).distance(function(d) { 
                     return Number(d.distance) + d.source.radius + d.target.radius;
-                });
+                });//.strength(1);
                 var forceCharge = d3.forceManyBody().strength(Number(viz.config.node_repel_force) * -1);
                 var forceX = d3.forceX(viz.config.containerWidth / 2).strength(Number(viz.config.node_center_force));
                 var forceY = d3.forceY(viz.config.containerHeight / 2).strength(Number(viz.config.node_center_force));
@@ -542,51 +556,85 @@ console.log("it is iteration", viz.drawIteration);
                     //.alphaTarget(1)
                     .on("tick", function() {
                         // When stuff is dragged, or when the forces are being simulated, move items
-                        viz.nodeSelection.attr("transform", function(d) {
+                        viz.nodeSelection
+                            .attr("transform", function(d) {
                                 // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
-                                d.x = Math.max(0, Math.min(viz.config.containerWidth, d.x));
-                                d.y = Math.max(0, Math.min(viz.config.containerHeight, d.y));
+                                if (isNaN(d.width)) {console.log("there is no d.width on tick", d); }
+                                d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
+                                d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
+                                //d.x = Math.max(0, Math.min(viz.config.containerWidth, d.x));
+                                //d.y = Math.max(0, Math.min(viz.config.containerHeight, d.y));
                                 return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")";
                             });
-                        viz.linkSelection.attr("x1", function(d){ return d.source.x; })
-                            .attr("y1", function(d){ return d.source.y; })
-                            .attr("x2", function(d){ return d.target.x; })
-                            .attr("y2", function(d){ return d.target.y; });
+                        viz.linkSelection
+                            .attr("x1", function(d){ if (isNaN(d.source.x)) { console.log("there is no d.source.x on tick", JSON.stringify(d)); }return d.source.x || 0; })
+                            .attr("y1", function(d){ return d.source.y || 0; })
+                            .attr("x2", function(d){ return d.target.x || 0; })
+                            .attr("y2", function(d){ return d.target.y || 0; }); 
+                        
+                        viz.linkLabelSelection
+                            .attr("transform", function(d) {
+                                var minx = Math.min(d.source.x, d.target.x);
+                                var maxx = Math.max(d.source.x, d.target.x);
+                                var miny = Math.min(d.source.y, d.target.y);
+                                var maxy = Math.max(d.source.y, d.target.y); 
+                                //console.log(JSON.stringify(d));
+                                return "translate(" + ((maxx - minx) * (d.labeloffset / 100) + minx) + "," + ((maxy - miny) * (d.labeloffset / 100) + miny - (viz.config.link_text_size * 0.3)) + ")";
+                            });   
                     });
             }
 
             viz.loadPositions();
-// TODO below sections need to be updated for.enter() and .exit() etc
+            // Stop the simulation while stuff is added/removed
+            viz.simulation.alphaTarget(0);
+
             // Add the node group element to the page
             viz.nodeSelection = viz.nodeGroup
                 .selectAll("g")
                 .data(viz.nodeData, function(d){ return d.id; });
 
+            viz.nodeSelection.exit()
+                .remove()
+                .call(function(selection){
+                    //console.log("node removed: ", JSON.stringify(selection));
+                });
 
+            viz.nodeSelection.enter()
+                .append('g')
+                .attr("class", "flow_map_viz-nodeset")
+                .attr("transform", function(d) { return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")"; })
+                .attr("x", function(d){ return d.x; })
+                .attr("y", function(d){ return d.y; })
+                .on("dblclick", function(d){ 
+                    // Remove fixed position on double click
+                    d.fx = null;
+                    d.fy = null;
+                })
+                .call(function(selection){
+                    //console.log("node added: ", JSON.stringify(selection));
+                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+                        .append("text")
+                        .attr("class", "flow_map_viz-nodeicon")
+                        .attr("stroke", viz.config.node_border_color)
+                        .attr("stroke-width", viz.config.node_border_width);
+                    selection.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
+                        .append("rect")
+                        .attr("stroke", viz.config.node_border_color)
+                        .attr("stroke-width", viz.config.node_border_width);
+                    selection.append("text")
+                        .attr("class", "flow_map_viz-nodelabel");
+                    selection.append("title")
+                        .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
+                })
+                .call(viz.drag(viz.simulation));
 
-var nodeSelectionEnter = viz.nodeSelection.enter()
-                    .append('g')
-                    .attr("x", function(d){ return d.x; })
-                    .attr("y", function(d){ return d.y; })
-                    .on("dblclick", function(d){ 
-                        // Remove fixed position on double click
-                        d.fx = null;
-                        d.fy = null;
-                    })
-                    .call(viz.drag(viz.simulation)); //
-nodeSelectionEnter.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; }).append("text").attr("class", "flow_map_viz-nodeicon");
-nodeSelectionEnter.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); }).append("rect");
-nodeSelectionEnter.append("text").attr("class", "flow_map_viz-nodelabel");
-
-
-            // Add tooltip
-            nodeSelectionEnter.append("title")
-                .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
-
-            viz.nodeSelection.exit().remove();
+            // Reselect everything
+            viz.nodeSelection = viz.nodeGroup
+                .selectAll("g");
 
             // icon types - setup as font awesome icons
-            viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+            //viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+            viz.nodeSelection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
                 .select(".flow_map_viz-nodeicon")
                 .attr("class", "fas")
                 .style('text-anchor', 'middle')
@@ -599,7 +647,8 @@ nodeSelectionEnter.append("text").attr("class", "flow_map_viz-nodelabel");
                 .style("opacity", function(d){ return d.opacity; });
 
             // non-icons - should be rects (can be circles too with the right rx)
-            viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
+            //viz.nodeSelection.merge(nodeSelectionEnter).filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
+            viz.nodeSelection.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
                 .select("rect")
                 .attr("width", function(d){ return d.width; })
                 .attr("height", function(d){ return d.height; })
@@ -609,27 +658,88 @@ nodeSelectionEnter.append("text").attr("class", "flow_map_viz-nodelabel");
                 .style("opacity", function(d){ return d.opacity; });
 
             // add the text label to the icon/rect
-            viz.nodeSelection.merge(nodeGroupsEnter)
+            //viz.nodeSelection.merge(nodeSelectionEnter)
+            viz.nodeSelection
                 .select(".flow_map_viz-nodelabel")
                 .text(function(d) { return d.label; })
                 .attr("x", function(d){ return d.width / 2 + Number(d.labelx); })
-                .attr("y", function(d){ return d.height / 2 + Number(d.labely); })
+                .attr("y", function(d){ return (d.height / 2) + (viz.config.node_text_size * 0.3) + Number(d.labely); })
                 .style("font", viz.config.node_text_size + "px sans-serif")
                 .style("text-anchor", "middle")
-                .attr("stroke", viz.config.node_text_color);
-
-
+                .attr("fill", viz.config.node_text_color);
 
             // Create the links (edges) as d3 objects
             viz.linkSelection = viz.linkGroup
                 .selectAll("line")
-                .data(viz.linkData, function(d){ return d.id; })
-                .join("line")
+                .data(viz.linkData, function(d){ return d.id; });
+// TODO does join do the same as this?
+            viz.linkSelection.enter().append("line");
+            viz.linkSelection.exit().remove();
+            // reselect lines
+            viz.linkSelection = viz.linkGroup
+                .selectAll("line")
                     .attr("stroke", function(d){ return d.color; })
                     .attr("stroke-width", function(d){ return d.width; });
             
-            viz.linkSelection.exit().remove();
-            
+            if (viz.config.mode === "ants") {
+                viz.linkSelection
+                    .attr("stroke-linecap", "butt")
+                    .attr("stroke-dashoffset", function(d){ return d.width * 5; })
+                    .attr("stroke-dasharray", function(d){ return (d.width * 3) + " " + (d.width * 2); })
+                    .call(antAnimate);
+            }
+
+            function antAnimate(path) {
+
+                // TODO need to stop/update on change
+                path.filter(function(d){ return Number(d.speed) !== 0; })
+                    .transition()
+                    .duration(function(d){ return 100 * (101 - Math.max(1, Math.min(100, Number(d.speed)))); })
+                    .ease(d3.easeLinear)
+                    .attr("stroke-dashoffset", "0")
+                    .on("end", function() { 
+                        d3.select(this)
+                            .attr("stroke-dashoffset", function(d) { return (d.width * 5); })
+                            .call(antAnimate);
+                    });
+            }
+
+
+
+            // Link labels
+            viz.linkLabelSelection = viz.linkLabelGroup
+                .selectAll("g")
+                .data(viz.linkData, function(d){ return d.id; });
+            viz.linkLabelSelection.enter()
+                .append("g")
+                .attr("class", "flow_map_viz-linklabel")
+                .call(function(selection){
+                    selection.append("text")
+                        .style("text-anchor", "middle");
+                    selection.append("title");
+            });
+            viz.linkLabelSelection.exit().remove();
+
+            // reselect link labels
+            viz.linkLabelSelection = viz.linkLabelGroup
+                .selectAll("g");
+
+            viz.linkLabelSelection
+                .select("text")
+                .style("font", viz.config.link_text_size + "px sans-serif")
+.selectAll("tspan.text")
+    .data(function(d) { return d.label.split("|"); })
+    .join("tspan")
+    .text(function(d) { return d; })
+    .attr("x", 0)
+    .attr("y", function(d,i){ return i * viz.config.link_text_size * 1.2; })
+    //.attr("dx", 0)
+    //.attr("dy", "1.2em")
+    ;                
+    //            .text(function(d) { return d.label; });
+            viz.linkLabelSelection.select("title")
+                .text(function(d) { return d.tooltip; });
+
             clearTimeout(viz.startParticlesTimeout);
             viz.startParticlesTimeout = setTimeout(function(){
                 // do all particles again
