@@ -28,7 +28,7 @@
 }
 
 .flow_map_viz-copylink {
-    position:absolute;
+    position: absolute;
     top:-1px;
     left:40px;
     color:#5c6773;
@@ -36,9 +36,32 @@
     opacity: 0;
 }
 .dashboard.view-mode .flow_map_viz-copylink {
-  display: none;
+    display: none;
 }
-
+.flow_map_viz-htmllinklabels,
+.flow_map_viz-htmlnodelabels {
+    position:absolute;
+    top: 0;
+    left: 0;
+}
+.flow_map_viz-htmlnodelabels > div {
+    pointer-events: none;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.flow_map_viz-htmllinklabels > div {
+    pointer-events: none;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    /* display: flex;
+    align-items: center;
+    justify-content: center; */
+}
 
 
 /* To load in Font Awesome, need to do a search and replace on all ".fa" to be namespaced correctly. Also need to rename and keyframes. Finally the fonts at the bottom need to ahve their paths changed. */

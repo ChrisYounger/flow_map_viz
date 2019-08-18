@@ -131,6 +131,26 @@
                         <splunk-color>#ecbc1b</splunk-color>
                 </splunk-color-picker>
         </splunk-control-group>
+
+        <splunk-control-group label="Label color">
+                <splunk-color-picker name="{{VIZ_NAMESPACE}}.link_label_color" value="#000000" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
+                        <splunk-color>#ffffff</splunk-color>
+                        <splunk-color>#C6C6C6</splunk-color>
+                        <splunk-color>#919191</splunk-color>
+                        <splunk-color>#5E5E5E</splunk-color>
+                        <splunk-color>#000000</splunk-color>
+                        <splunk-color>#53a051</splunk-color>
+                        <splunk-color>#dc4d41</splunk-color>
+                        <splunk-color>#d16f18</splunk-color>
+                        <splunk-color>#009DD9</splunk-color>
+                        <splunk-color>#ebb839</splunk-color>
+                        <splunk-color>#1a9035</splunk-color>
+                        <splunk-color>#b22b32</splunk-color>
+                        <splunk-color>#AF5300</splunk-color>
+                        <splunk-color>#0178c7</splunk-color>
+                        <splunk-color>#ecbc1b</splunk-color>
+                </splunk-color-picker>
+        </splunk-control-group>        
 </form>
 
 
@@ -152,6 +172,10 @@
         <splunk-control-group label="Particle size">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_size" value="3"></splunk-text-input>
         </splunk-control-group> 
+
+        <splunk-control-group label="Particle limit">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.maxparticles" value="100"></splunk-text-input>
+        </splunk-control-group>
 
         <splunk-control-group label="Good color">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.particle_good_color" value="#1a9035" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
@@ -215,32 +239,59 @@
 </form>
 
 <form class="splunk-formatter-section" section-label="Advanced">
+        <splunk-control-group label="Background color">
+                <splunk-select name="{{VIZ_NAMESPACE}}.background_mode" value="transparent" style="vertical-align:top; display:inline-block; width:90px; margin-right:10px;">
+                        <option value="transparent">Transparent</option>
+                        <option value="static">Static</option>
+                </splunk-select>
+                <splunk-color-picker name="{{VIZ_NAMESPACE}}.background_color" value="#ffffff" type="splunkCategorical" style="vertical-align:top; display:inline-block; margin-top: -2px;">
+                        <splunk-color>#ffffff</splunk-color>
+                        <splunk-color>#C6C6C6</splunk-color>
+                        <splunk-color>#919191</splunk-color>
+                        <splunk-color>#5E5E5E</splunk-color>
+                        <splunk-color>#000000</splunk-color>
+                        <splunk-color>#53a051</splunk-color>
+                        <splunk-color>#dc4d41</splunk-color>
+                        <splunk-color>#d16f18</splunk-color>
+                        <splunk-color>#009DD9</splunk-color>
+                        <splunk-color>#ebb839</splunk-color>
+                        <splunk-color>#1a9035</splunk-color>
+                        <splunk-color>#b22b32</splunk-color>
+                        <splunk-color>#AF5300</splunk-color>
+                        <splunk-color>#0178c7</splunk-color>
+                        <splunk-color>#ecbc1b</splunk-color>
+                </splunk-color-picker>
+        </splunk-control-group>
+
         <splunk-control-group label="Node limit">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.maxnodes" value="150"></splunk-text-input>
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.maxnodes" value="100"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Particle limit">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.maxparticles" value="100"></splunk-text-input>
-        </splunk-control-group> 
+        <splunk-control-group label="HTML labels">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.labels_as_html" value="no">
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                </splunk-radio-input>
+        </splunk-control-group>
 
-        <splunk-control-group label="Stop when hidden">
+        <splunk-control-group label="Stop when backgrounded">
                 <splunk-radio-input name="{{VIZ_NAMESPACE}}.stop_when_not_visible" value="yes">
                         <option value="yes">Yes</option>
                         <option value="no">No</option>
                 </splunk-radio-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Node repel force">
+        <splunk-control-group label="Repel force">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_repel_force" value="1000"></splunk-text-input>
-        </splunk-control-group> 
+        </splunk-control-group>
 
-        <splunk-control-group label="Node center force">
+        <splunk-control-group label="Center force">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_center_force" value="0.01"></splunk-text-input>
-        </splunk-control-group> 
+        </splunk-control-group>
         
         <splunk-control-group label="Positions">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.positions" value=""></splunk-text-input>
-        </splunk-control-group> 
+        </splunk-control-group>
 </form>
 
 
