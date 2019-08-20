@@ -48,7 +48,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	// TODO add canvas mode for particles
 	// TODO add zoom 
 	// TODO set nicer defaults
-	// TODO add arrow particle mode
+	// TODO add arrow mode
 	// TODO add drilldowns/tokens
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
@@ -84,7 +84,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            viz.config = {
 	                maxnodes: "100",
-	                maxparticles: "100",
 	                stop_when_not_visible: "yes",
 	                node_repel_force: "1000",
 	                node_center_force: "0.01",
@@ -92,6 +91,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                labels_as_html: "no",
 	                background_mode: "transparent",
 	                background_color: "#ffffff",
+	                // At some point we could potentially change to webgl shader: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
+	                renderer: "canvas",
 
 	                link_speed: "90",
 	                link_opacity: "0.4",
@@ -100,13 +101,15 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                link_color: "#cccccc",
 	                link_label_color: "#000000",
 	                link_text_size: "10",
+	                line_style: "solid",
 
-	                mode: "particles",
+	                particle_limit: "100",
 	                particle_good_color: "#1a9035",
 	                particle_warn_color: "#d16f18",
 	                particle_error_color: "#b22b32",
 	                particle_spread: "5",
 	                particle_size: "3",
+	                particle_blur: "0",
 	                
 	                node_width: "150",
 	                node_height: "80",
@@ -207,6 +210,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            return d3.drag()
 	                .on("start", function(d) {
 	                    viz.particleGroup.selectAll("circle").remove();
+	                    viz.activeParticles = [];
 	                    viz.isDragging = true;
 	                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
 	                    d.fx = d.x;
@@ -330,13 +334,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                return;
 	            }
 	            for (var i = 0; i < viz.linkData.length; i++) {
-	                if (viz.config.mode === "particles") {
+	                //if (viz.config.mode === "particles") {
 	                    for (var particletype in viz.particleTypes) {
 	                        if (viz.particleTypes.hasOwnProperty(particletype)) {
 	                            viz.startParticleGroup(viz.linkData[i], particletype);
 	                        }
 	                    }
-	                }
+	                //}
 	            }
 	        },
 
@@ -385,18 +389,69 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
 	                return;
 	            }
-	            var jitter = (base_jitter * Math.random()) - (base_jitter / 2);
-	            viz.particleGroup.append("circle")
-	                .attr("cx", (jitter + link_details.source.x))
-	                .attr("cy", (jitter + link_details.source.y))
-	                .attr("r", viz.config.particle_size)
-	                .attr("fill", viz.particleTypes[particletype])
-	                .transition()
-	                    // Randomise the speed of the particles
-	                    .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
-	                    .ease(d3.easeLinear)
-	                    .attr("cx", (jitter + link_details.target.x)).attr("cy", (jitter + link_details.target.y))
-	                    .remove();
+	            var jitter1 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
+	            var jitter2 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
+	            if (viz.config.renderer === "canvas") {
+	                viz.activeParticles.push({
+	                    sx: (jitter1 + link_details.source.x),
+	                    sy: (jitter2 + link_details.source.y),
+	                    tx: (jitter1 + link_details.target.x),
+	                    ty: (jitter2 + link_details.target.y),
+	                    color: viz.particleTypes[particletype],
+	                    duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
+	                });
+	            } else {
+	                viz.particleGroup.append("circle")
+	                    .attr("cx", (jitter1 + link_details.source.x))
+	                    .attr("cy", (jitter2 + link_details.source.y))
+	                    .attr("r", viz.config.particle_size)
+	                    .attr("fill", viz.particleTypes[particletype])
+	                    .transition()
+	                        // Randomise the speed of the particles
+	                        .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
+	                        .ease(d3.easeLinear)
+	                        .attr("cx", (jitter1 + link_details.target.x)).attr("cy", (jitter2 + link_details.target.y))
+	                        .remove();
+	            }
+	        },
+
+	        updateCanvas: function() {
+	            var viz = this;
+	            var now = (new Date).getTime();
+	            var ms_since_lastdraw = now - viz.lastDraw
+	            //console.log("lastdraw", ms_since_lastdraw);
+	            //if (ms_since_lastdraw < 1000) { return; }
+	            viz.lastDraw = now;
+	            var i,x,y,p,t;
+	            var deletes = [];
+	            viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
+	            //console.log("particles", viz.activeParticles.length);
+	            for (i = 0; i < viz.activeParticles.length; i++) {
+	                p = viz.activeParticles[i];
+	                if (! p.hasOwnProperty("start")) {
+	                    p.start = now;
+	                }
+	                t = ((now - p.start) / p.duration);
+	                if (t > 1) {
+	                    deletes.push(i);
+	                }
+	                x = p.sx * (1 - t) + p.tx * t;
+	                y = p.sy * (1 - t) + p.ty * t;                
+	                viz.context.beginPath();
+	                if (viz.config.particle_blur !== "0") {
+	                    viz.context.shadowColor = p.color;
+	                    viz.context.shadowBlur = viz.config.particle_blur;
+	                    viz.context.shadowOffsetX = 0;
+	                    viz.context.shadowOffsetY = 0;
+	                }
+	                viz.context.moveTo(x + viz.config.particle_size, y);
+	                viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
+	                viz.context.fillStyle = p.color;
+	                viz.context.fill();
+	            }
+	            for (i = deletes.length - 1; i >= 0; i--) {
+	                viz.activeParticles.splice(deletes[i], 1);
+	            }
 	        },
 
 	        removeParticles: function(link_details) {
@@ -468,6 +523,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.linkData = [];
 	                viz.delayUntilParticles = 2000;
 	                viz.isDragging = false;
+	                viz.activeParticles = [];
+	                viz.lastDraw = 0;
 	            }
 
 	            // loop through data
@@ -512,7 +569,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                }
 	            }
 
-	            viz.particleMax = viz.config.maxparticles / 300;
+	            viz.particleMax = viz.config.particle_limit / 300;
 	            // If zero, hide all particles
 	            if (viz.particleMax === 0 || viz.totalParticles === 0) {
 	                viz.particleMultiplier = 0;
@@ -544,7 +601,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            // Too many nodes in data
 	            if (viz.nodeData.length > Number(viz.config.maxnodes)) {
 	                viz.doRemove();
-	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodeData.length + ", Limit: " + viz.config.maxnodes + "). </div>");
+	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodeData.length + ", Limit: " + viz.config.maxnodes + "). The limit can be changed in the format menu. </div>");
 	                return;
 	            }
 
@@ -553,19 +610,43 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            // Add SVG to the page
 	            if (viz.drawIteration === 1) {
-	                viz.svg = d3.create("svg").style("box-sizing", "border-box").attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
-	                viz.svg.attr("width", viz.config.containerWidth + "px").attr("height", viz.config.containerHeight + "px");
+	                viz.svg = d3.create("svg")
+	                    .attr("class", "flow_map_viz-svg")
+	                    .attr("width", viz.config.containerWidth + "px")
+	                    .attr("height", viz.config.containerHeight + "px")
+	                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight])                
+	                viz.svgNodes = d3.create("svg")
+	                    .attr("class", "flow_map_viz-svgNodes")
+	                    .attr("width", viz.config.containerWidth + "px")
+	                    .attr("height", viz.config.containerHeight + "px")
+	                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
 	                if (viz.config.background_mode === "transparent") {
 	                    viz.$container_wrap.css("background-color", "")
 	                } else {
 	                    viz.$container_wrap.css("background-color", viz.config.background_color)
 	                }
-	                viz.$container_wrap.empty().append(viz.svg.node());
+	                viz.$container_wrap.empty();
+	                if (viz.hasOwnProperty("timer")) {
+	                    viz.timer.stop(); 
+	                } 
+	                viz.$container_wrap.append(viz.svg.node());               
+	                if (viz.config.renderer === "canvas") {
+	                    viz.canvas = d3.create("canvas")
+	                        .attr("class", "flow_map_viz-canvas")
+	                        .attr("width", viz.config.containerWidth)
+	                        .attr("height", viz.config.containerHeight);
+	                    viz.$container_wrap.append(viz.canvas.node());
+	                    viz.context = viz.canvas.node().getContext("2d")                    
+	                    viz.timer = d3.timer(function() {
+	                        viz.updateCanvas();
+	                    });
+	                }
+	                viz.$container_wrap.append(viz.svgNodes.node());
 	                // Add the drop shadow with IE11 and edge support
 	                viz.shadow_id = viz.instance_id + "_" + (viz.instance_id_ctr++);
 	                // This doesnt work in IE11 and Edge: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/18760697/
 	                //var filter = svg.append("filter").attr("id", shadow_id).append("feDropShadow").attr("flood-opacity", viz.config.shadow === "show" ? 0.3 : 0).attr("dx", 0).attr("dy", 1);
-	                var defs = viz.svg.append("defs");
+	                var defs = viz.svgNodes.append("defs");
 	                // height=120% so that the shadow is not clipped
 	                var filter = defs.append("filter").attr("id", viz.shadow_id).attr("height", "120%");
 	                // From: http://bl.ocks.org/cpbotha/raw/5200394/dropshadow.js with tweaks.
@@ -582,12 +663,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .attr("class", "flow_map_viz-links");
 	                viz.particleGroup = viz.svg.append("g")
 	                    .attr("class", "flow_map_viz-particles");
-	                viz.linkLabelGroup = viz.svg.append("g")
+	                viz.linkLabelGroup = viz.svgNodes.append("g")
 	                    .style("text-anchor", "middle")
 	                    .style("font", viz.config.link_text_size + "px sans-serif")
 	                    .attr("fill", viz.config.link_label_color)
 	                    .attr("class", "flow_map_viz-linklabels");
-	                viz.nodeGroup = viz.svg.append("g")
+	                viz.nodeGroup = viz.svgNodes.append("g")
 	                    .attr("class", "flow_map_viz-nodes");
 	                // Create html components
 	                viz.linkLabelGroupHTML = d3.create("div")
@@ -791,7 +872,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .attr("stroke", function(d){ return d.color; })
 	                    .attr("stroke-width", function(d){ return d.width; });
 	            
-	            if (viz.config.mode === "ants") {
+	            if (viz.config.line_style === "ants") {
 	                viz.linkSelection
 	                    .attr("stroke-linecap", "butt")
 	                    .attr("stroke-dashoffset", function(d){ return d.width * 5; })

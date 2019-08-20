@@ -1,7 +1,17 @@
 .flow_map_viz-container {
     position:relative;
 }
-.flow_map_viz-container svg {
+.flow_map_viz-canvas,
+.flow_map_viz-svg,
+.flow_map_viz-svgNodes,
+.flow_map_viz-htmllinklabels,
+.flow_map_viz-htmlnodelabels {
+    position:absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+}
+.flow_map_viz-container-svg {
     /*margin: 10px auto;*/
     display: block;
 }
@@ -38,12 +48,7 @@
 .dashboard.view-mode .flow_map_viz-copylink {
     display: none;
 }
-.flow_map_viz-htmllinklabels,
-.flow_map_viz-htmlnodelabels {
-    position:absolute;
-    top: 0;
-    left: 0;
-}
+
 .flow_map_viz-htmlnodelabels > div {
     pointer-events: none;
     position: absolute;
