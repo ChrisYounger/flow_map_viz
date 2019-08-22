@@ -3,12 +3,11 @@
 // TODO set nicer defaults
 // TODO add arrow mode
 // TODO add drilldowns/tokens
-// specify attachment point on node attachs / attacht
 // highlight link/nodes/labels on hover.
 // ability to do paths that are pipe seperated. maybe a new "path=" node
-// dont need distance on links anymore (or at least dont set a default)
-// remove svg renderer
+// remove svg renderer - conver it to arrows
 // addon bugs in customer environment
+// check all nan edge cases
 
 define([
     'api/SplunkVisualizationBase',
@@ -146,9 +145,9 @@ function(
             viz.linkDataMap[id].drawIteration = viz.drawIteration;
             viz.linkDataMap[id].source = opts.from;
             viz.linkDataMap[id].target = opts.to;
-            viz.linkDataMap[id].good = opts.hasOwnProperty("good") ? Number(opts.good) : 0;
-            viz.linkDataMap[id].warn = opts.hasOwnProperty("warn") ? Number(opts.warn) : 0;
-            viz.linkDataMap[id].error = opts.hasOwnProperty("error") ? Number(opts.error) : 0;
+            viz.linkDataMap[id].good = opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
+            viz.linkDataMap[id].warn = opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
+            viz.linkDataMap[id].error = opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
             viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.config.link_color;
             viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.config.link_width;
             viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.config.link_distance;
@@ -160,6 +159,8 @@ function(
             viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : defaultLabel;
             viz.linkDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : "0";
             viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : "0";
+            viz.linkDataMap[id].sourcepoint = opts.hasOwnProperty("fromside") ? opts.fromside : "";
+            viz.linkDataMap[id].targetpoint = opts.hasOwnProperty("toside") ? opts.toside : "";
         },
 
         // Add hander for dragging. Anything dragged will get a fixed position
@@ -216,7 +217,6 @@ function(
             textArea.focus();
             textArea.select();
             try {
-                var successful = document.execCommand('copy');
                 viz.toast('Copied to clipboard! (now paste into settings)');
             } catch (err) {
                 console.error('Fallback: Oops, unable to copy', err);
@@ -245,45 +245,6 @@ function(
             var dump = JSON.stringify(viz.positions);
             console.log(dump.substr(1,dump.length-2));
             viz.copyTextToClipboard(dump.substr(1,dump.length-2));
-        },
-
-        // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
-        loadPositions: function(){
-            var viz = this;
-            var xy;
-            if (! viz.hasOwnProperty("positions") || viz.drawIteration === 1) {
-                viz.positions = {};
-                if (viz.config.positions !== "") {
-                    try {
-                        viz.positions = JSON.parse("{" + viz.config.positions + "}");
-                    } catch (e) {
-                        console.log("Unable to load initial positioning as it isnt a valid JSON array");
-                    }
-                }
-            }
-            for (var i = 0; i < viz.nodeData.length; i++){
-                // If the dashboard has updated the fx might already be set
-                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
-                    viz.nodeData[i].isPositioned = true;
-                    // Data xperc/yperc will be overridden by formatter option
-                    if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
-                        xy = viz.positions[viz.nodeData[i].id].split(",");
-                        viz.nodeData[i].xperc = xy[0];
-                        viz.nodeData[i].yperc = xy[1];
-                    } 
-                    if (viz.nodeData[i].xperc !== "") {
-                        // set a fixed x position
-                        viz.nodeData[i].fx = viz.nodeData[i].xperc / 100 * viz.config.containerWidth;
-                    }
-                    viz.nodeData[i].x = viz.config.containerWidth / 2;
-                    if (viz.nodeData[i].yperc !== "") {
-                        viz.nodeData[i].fy = viz.nodeData[i].yperc / 100 * viz.config.containerHeight;
-                    } 
-                    viz.nodeData[i].y = viz.config.containerHeight / 2;
-                } else {
-                    console.log("skipping positioned element");
-                }
-            }
         },
 
         startParticles: function() {
@@ -315,9 +276,10 @@ function(
             var distance = Math.sqrt(Math.pow((link_details.target.fx || link_details.target.x) - (link_details.source.fx || link_details.source.x), 2) + 
                                      Math.pow((link_details.target.fy || link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
             // Line is too short to animate anything meaningful
-            if (distance < (link_details.source.radius + link_details.target.radius)) {
-                return;
-            } 
+            // now that there are attachment points this is not accurate
+            //if (distance < (link_details.source.radius + link_details.target.radius)) {
+            //    return;
+            //} 
             // The duration needs to also consider the length of the line (ms per pixel)
             var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
             // add some jitter to the starting position
@@ -372,14 +334,11 @@ function(
         updateCanvas: function() {
             var viz = this;
             var now = (new Date).getTime();
-            var ms_since_lastdraw = now - viz.lastDraw
-            //console.log("lastdraw", ms_since_lastdraw);
-            //if (ms_since_lastdraw < 1000) { return; }
             viz.lastDraw = now;
             var i,x,y,p,t;
             var deletes = [];
             viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
-            //console.log("particles", viz.activeParticles.length);
+            //console.log("total particles", viz.activeParticles.length);
             for (i = 0; i < viz.activeParticles.length; i++) {
                 p = viz.activeParticles[i];
                 if (! p.hasOwnProperty("start")) {
@@ -449,7 +408,7 @@ function(
             if (viz.config.node_shadow_mode === "disabled"){
                 return null;
             } else if (viz.config.node_shadow_mode === "darker1"){
-                clr = tinycolor(d.color).darken(10).toString()
+                clr = tinycolor(d.color).darken(10).toString();
             } else if (viz.config.node_shadow_mode === "darker2"){
                 clr = tinycolor(d.color).darken(20).toString();
             } else {
@@ -536,7 +495,7 @@ function(
                 }
             }
 
-            // count how many particles there are in total
+            // count how many particles there are in total and determine attachment points
             viz.totalParticles = 0;
             for (var k = viz.linkData.length - 1; k >= 0 ; k--) {
                 viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
@@ -545,6 +504,31 @@ function(
                     viz.removeParticles(viz.linkData[k]);
                     delete viz.linkDataMap[viz.linkData[k].id];
                     viz.linkData.splice(k, 1);
+                    continue;
+                }
+
+                // determine attachment points
+                viz.linkData[k].sx_mod = 0;
+                viz.linkData[k].sy_mod = 0;
+                viz.linkData[k].tx_mod = 0;
+                viz.linkData[k].ty_mod = 0;
+                if (viz.linkData[k].sourcepoint === "left") {
+                    viz.linkData[k].sx_mod = viz.nodeDataMap[viz.linkData[k].source].width / 2 * -1;
+                } else if (viz.linkData[k].sourcepoint === "right") {
+                    viz.linkData[k].sx_mod = viz.nodeDataMap[viz.linkData[k].source].width / 2;
+                } else if (viz.linkData[k].sourcepoint === "top") {
+                    viz.linkData[k].sy_mod = viz.nodeDataMap[viz.linkData[k].source].height / 2 * -1;
+                } else if (viz.linkData[k].sourcepoint === "bottom") {
+                    viz.linkData[k].sy_mod = viz.nodeDataMap[viz.linkData[k].source].height / 2;
+                }
+                if (viz.linkData[k].targetpoint === "left") {
+                    viz.linkData[k].tx_mod = viz.nodeDataMap[viz.linkData[k].target].width / 2 * -1;
+                } else if (viz.linkData[k].targetpoint === "right") {
+                    viz.linkData[k].tx_mod = viz.nodeDataMap[viz.linkData[k].target].width / 2;
+                } else if (viz.linkData[k].targetpoint === "top") {
+                    viz.linkData[k].ty_mod = viz.nodeDataMap[viz.linkData[k].target].height / 2 * -1;
+                } else if (viz.linkData[k].targetpoint === "bottom") {
+                    viz.linkData[k].ty_mod = viz.nodeDataMap[viz.linkData[k].target].height / 2;
                 }
             }
 
@@ -558,8 +542,6 @@ function(
             } else {
                 viz.particleMultiplier = viz.particleMax / viz.totalParticles;
             }
-            // TODO can this be NaN
-            console.log("particle mulitpler is ", viz.particleMultiplier)
 
             // Sort the lists back into the order it arrived
             viz.nodeData.sort(function(a,b){
@@ -593,16 +575,16 @@ function(
                     .attr("class", "flow_map_viz-svg")
                     .attr("width", viz.config.containerWidth + "px")
                     .attr("height", viz.config.containerHeight + "px")
-                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight])
+                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
                 viz.svgNodes = d3.create("svg")
                     .attr("class", "flow_map_viz-svgNodes")
                     .attr("width", viz.config.containerWidth + "px")
                     .attr("height", viz.config.containerHeight + "px")
                     .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
                 if (viz.config.background_mode === "transparent") {
-                    viz.$container_wrap.css("background-color", "")
+                    viz.$container_wrap.css("background-color", "");
                 } else {
-                    viz.$container_wrap.css("background-color", viz.config.background_color)
+                    viz.$container_wrap.css("background-color", viz.config.background_color);
                 }
                 viz.$container_wrap.empty();
                 if (viz.hasOwnProperty("timer")) {
@@ -615,7 +597,7 @@ function(
                         .attr("width", viz.config.containerWidth)
                         .attr("height", viz.config.containerHeight);
                     viz.$container_wrap.append(viz.canvas.node());
-                    viz.context = viz.canvas.node().getContext("2d")
+                    viz.context = viz.canvas.node().getContext("2d");
                     viz.timer = d3.timer(function() {
                         viz.updateCanvas();
                     });
@@ -656,13 +638,13 @@ function(
                 // These are the forces that move to the center
                 var forceLink = d3.forceLink([]).id(function(d) { return d.id; }).distance(function(d) { 
                     return Number(d.distance) + d.source.radius + d.target.radius;
-                });//.strength(1);
+                });
                 var forceCharge = d3.forceManyBody().strength(Number(viz.config.node_repel_force) * -1);
                 var forceX = d3.forceX(viz.config.containerWidth / 2).strength(Number(viz.config.node_center_force));
                 var forceY = d3.forceY(viz.config.containerHeight / 2).strength(Number(viz.config.node_center_force));
 
                 // Force testing playground: https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03
-                viz.simulation = d3.forceSimulation([])
+                viz.simulation = d3.forceSimulation([]) // initialise with empty set
                     .force("link", forceLink)
                     .force("charge", forceCharge)
                     .force('x', forceX)
@@ -682,17 +664,18 @@ function(
                             });
 
                         viz.linkSelection
-                            .attr("x1", function(d){ if (isNaN(d.source.x)) { console.log("there is no d.source.x on tick", JSON.stringify(d)); }return d.source.x || 0; })
-                            .attr("y1", function(d){ return d.source.y || 0; })
-                            .attr("x2", function(d){ return d.target.x || 0; })
-                            .attr("y2", function(d){ return d.target.y || 0; }); 
+                            .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
+                            .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; }) 
+                            .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
+                            .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; }); 
 
                         viz.linkLabelSelection
                             .style("transform", function(d) {
-                                var minx = Math.min(d.source.x, d.target.x);
-                                var maxx = Math.max(d.source.x, d.target.x);
-                                var miny = Math.min(d.source.y, d.target.y);
-                                var maxy = Math.max(d.source.y, d.target.y); 
+                                var minx = Math.min(d.sx, d.tx);
+                                var maxx = Math.max(d.sx, d.tx);
+                                var miny = Math.min(d.sy, d.ty);
+                                var maxy = Math.max(d.sy, d.ty); 
+                                // TODO is the label offsetting working?
                                 return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
                             });
                     });
@@ -701,19 +684,51 @@ function(
             // Stop the simulation while stuff is added/removed
             //viz.simulation.alphaTarget(0);
 
-            viz.loadPositions();
+            // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
+            var xy;
+            if (! viz.hasOwnProperty("positions") || viz.drawIteration === 1) {
+                viz.positions = {};
+                if (viz.config.positions !== "") {
+                    try {
+                        viz.positions = JSON.parse("{" + viz.config.positions + "}");
+                    } catch (e) {
+                        console.log("Unable to load initial positioning as it isnt a valid JSON array");
+                    }
+                }
+            }
+            for (var i = 0; i < viz.nodeData.length; i++){
+                // If the dashboard has updated the fx might already be set
+                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
+                    viz.nodeData[i].isPositioned = true;
+                    // Data xperc/yperc will be overridden by formatter option
+                    if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
+                        xy = viz.positions[viz.nodeData[i].id].split(",");
+                        viz.nodeData[i].xperc = xy[0];
+                        viz.nodeData[i].yperc = xy[1];
+                    } 
+                    // set fixed positions if defined
+                    if (viz.nodeData[i].xperc !== "" && ! isNaN(viz.nodeData[i].xperc)) {
+                        viz.nodeData[i].fx = viz.nodeData[i].xperc / 100 * viz.config.containerWidth;
+                    }
+                    if (viz.nodeData[i].yperc !== "" && ! isNaN(viz.nodeData[i].yperc)) {
+                        viz.nodeData[i].fy = viz.nodeData[i].yperc / 100 * viz.config.containerHeight;
+                    } 
+                    viz.nodeData[i].x = viz.config.containerWidth / 2;
+                    viz.nodeData[i].y = viz.config.containerHeight / 2;
+                }
+            }
 
             viz.nodeSelection = viz.nodeGroup
-                .selectAll("div")
+                .selectAll(".flow_map_viz-nodeset")
                 .data(viz.nodeData, function(d){ return d.id; });
 
-            viz.nodeSelection.exit().remove();
+            viz.nodeSelection.exit().call(function(d){console.log("removing", d.label);}).remove();
 
             viz.nodeSelection.enter()
                 .append("div")
                 .attr("class", "flow_map_viz-nodeset") 
                 .on("dblclick", function(d){ 
-                // Remove fixed position on double click
+                    // Remove fixed position on double click
                     d.fx = null;
                     d.fy = null;
                 })
@@ -723,7 +738,8 @@ function(
                         .attr("class", "flow_map_viz-nodeicon");
                     selection
                         .append("div")
-                        .attr("class", "flow_map_viz-nodelabel");
+                        .attr("class", "flow_map_viz-nodelabel")
+                        .call(function(d){ console.log("adding", d.label); });
                 })
                 .call(viz.drag(viz.simulation));
 
@@ -732,12 +748,19 @@ function(
                 .selectAll(".flow_map_viz-nodeset");
 
             viz.nodeSelection
-                .attr("title", function(d){ return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); })
+                .attr("title", function(d){ return d.id; })
                 .style("width", function(d){ return d.width + "px"; })
                 .style("height", function(d){ return d.height + "px"; })
                 .style("opacity", function(d){ return d.opacity; })
                 .call(function(selection){
-                    // non icon types
+                    // set then label on all types
+                    selection
+                        .select(".flow_map_viz-nodelabel")
+                        .style("margin-left", function(d){ return d.labelx + "px"; })
+                        .style("margin-top", function(d){ return d.labely + "px"; })
+                        .html(function(d) { console.log("Setting label on", d.label); return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
+
+                    // non icon types (there will be unexpected results if a node changes between an icon and nonicon dynamically)
                     selection
                         .filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== "");})
                         .style("border", function(d){ 
@@ -745,31 +768,21 @@ function(
                                 return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(10).toString();
                             } else if (viz.config.node_border_mode === "darker2") {
                                 return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(20).toString();
-                            } else {
-                                return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
                             }
+                            return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
                         })
                         .style("box-shadow", function(d){ return viz.getShadow(d); })
                         .style("border-radius", function(d){ return d.rx + "px"; })
-                        .style("background-color", function(d){ return d.color; })
-                        .style("opacity", function(d){ return d.opacity; });
+                        .style("background-color", function(d){ return d.color; });
 
-                    // icon types - setup as font awesome icons
+                    // icon types - as font awesome icons
                     selection
                         .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
                         .select(".flow_map_viz-nodeicon")
-                        .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon })
+                        .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon; })
                         .style("font-size", function(d){ return d.height + "px"; })
                         .style("color", function(d){ return d.color; })
-                        .style("text-shadow",  function(d){ return viz.getShadow(d); })
-                        .style("opacity", function(d){ return d.opacity; });
-
-                    // set then label
-                    selection
-                        .select(".flow_map_viz-nodelabel")
-                        .style("margin-left", function(d){ return d.labelx + "px"; })
-                        .style("margin-top", function(d){ return d.labely + "px"; })
-                        .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; })
+                        .style("text-shadow",  function(d){ return viz.getShadow(d); });
 
                 });
 
@@ -793,11 +806,10 @@ function(
                     .call(function(p) {  viz.antAnimate(p); });
             }
 
+            // Creat link labels
             viz.linkLabelSelection = viz.linkLabelGroup
                 .selectAll("div")
-                .data(viz.linkData, function(d){ return d.id; });
-            
-            viz.linkLabelSelection
+                .data(viz.linkData, function(d){ return d.id; })
                 .join("div");
 
             viz.linkLabelSelection = viz.linkLabelGroup
@@ -805,9 +817,9 @@ function(
                 .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
                 .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
                 .attr("title", function(d) { return d.tooltip; })
-                .html(function(d) { return d.label; })
+                .html(function(d) { return d.label; });
 
-            // do all particles again
+            // redo particles
             clearTimeout(viz.startParticlesTimeout);
             viz.startParticlesTimeout = setTimeout(function(){
                 viz.startParticles();
@@ -816,6 +828,7 @@ function(
             console.log("allowing draws");
             viz.isFinishedDrawing = (new Date).getTime();
 
+            // trigger force layout
             viz.simulation.nodes(viz.nodeData);
             viz.simulation.force("link").links(viz.linkData);
             viz.simulation.alpha(0.3).restart();
