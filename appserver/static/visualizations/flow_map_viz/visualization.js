@@ -45,11 +45,16 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO fix teleporting items
-	// TODO add canvas mode for particles
 	// TODO add zoom 
 	// TODO set nicer defaults
 	// TODO add arrow mode
 	// TODO add drilldowns/tokens
+	// specify attachment point on node attachs / attacht
+	// highlight link/nodes/labels on hover.
+	// ability to do paths that are pipe seperated. maybe a new "path=" node
+	// dont need distance on links anymore (or at least dont set a default)
+	// remove svg renderer
+	// addon bugs in customer environment
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 	    __webpack_require__(1),
@@ -68,10 +73,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            viz.instance_id = "flow_map_viz-" + Math.round(Math.random() * 1000000);
 	            viz.instance_id_ctr = 0;
-	            var theme = 'light'; 
-	            if (typeof vizUtils.getCurrentTheme === "function") {
-	                theme = vizUtils.getCurrentTheme();
-	            }
 	            viz.$container_wrap = $(viz.el);
 	            viz.$container_wrap.addClass("flow_map_viz-container");
 	        },
@@ -110,16 +111,18 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                particle_spread: "5",
 	                particle_size: "3",
 	                particle_blur: "0",
-	                
+
 	                node_width: "150",
 	                node_height: "80",
 	                node_bg_color: "#cccccc",
 	                node_border_color: "#000000",
+	                node_border_mode: "darker1",
 	                node_border_width: "1",
+	                node_shadow_mode: "custom",
+	                node_shadow_color: "#000000",
 	                node_text_color: "#000000",
 	                node_text_size: "12",
 	                node_radius: 10,
-	                node_shadow: "show",
 	            };
 	            // Override defaults with selected items from the UI
 	            for (var opt in config) {
@@ -127,7 +130,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = config[opt];
 	                }
 	            }
-	            
+
 	            viz.particleTypes = {
 	                good:  viz.config.particle_good_color,
 	                warn:  viz.config.particle_warn_color,
@@ -217,8 +220,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    d.fy = d.y;
 	                })
 	                .on("drag", function(d) {
-	                    d.fx = d3.event.x;
-	                    d.fy = d3.event.y;
+	                    d.fx = Math.round(d3.event.x / viz.config.containerWidth * 100) / 100 * viz.config.containerWidth;
+	                    d.fy = Math.round(d3.event.y / viz.config.containerHeight * 100) / 100 * viz.config.containerHeight;
 	                })
 	                .on("end", function(d) {
 	                    viz.isDragging = false;
@@ -314,7 +317,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        viz.nodeData[i].yperc = xy[1];
 	                    } 
 	                    if (viz.nodeData[i].xperc !== "") {
-	                        // .fx sets a fixed x position
+	                        // set a fixed x position
 	                        viz.nodeData[i].fx = viz.nodeData[i].xperc / 100 * viz.config.containerWidth;
 	                    }
 	                    viz.nodeData[i].x = viz.config.containerWidth / 2;
@@ -334,13 +337,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                return;
 	            }
 	            for (var i = 0; i < viz.linkData.length; i++) {
-	                //if (viz.config.mode === "particles") {
-	                    for (var particletype in viz.particleTypes) {
-	                        if (viz.particleTypes.hasOwnProperty(particletype)) {
-	                            viz.startParticleGroup(viz.linkData[i], particletype);
-	                        }
+	                for (var particletype in viz.particleTypes) {
+	                    if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                        viz.startParticleGroup(viz.linkData[i], particletype);
 	                    }
-	                //}
+	                }
 	            }
 	        },
 
@@ -351,8 +352,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            // Stop any existing timers
 	            clearTimeout(link_details.timeouts[particletype]);
 	            clearInterval(link_details.intervals[particletype]);
+	            // No particles of this type
 	            if (link_details[particletype] <= 0) {
-	                //console.log("no particles for : ", link_details, particletype);
 	                return;
 	            }
 	            // calculate distance between two points
@@ -360,7 +361,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                                     Math.pow((link_details.target.fy || link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
 	            // Line is too short to animate anything meaningful
 	            if (distance < (link_details.source.radius + link_details.target.radius)) {
-	                //console.log("line is too short to animate: ", link_details, distance);
 	                return;
 	            } 
 	            // The duration needs to also consider the length of the line (ms per pixel)
@@ -369,7 +369,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
 	            base_jitter = Number(base_jitter);
 	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-	            //console.log("particle_dispatch_delay is", particle_dispatch_delay);
 	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
 	            link_details.timeouts[particletype] = setTimeout(function(){
 	                viz.doParticle(link_details, particletype, base_time, base_jitter);
@@ -434,9 +433,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                t = ((now - p.start) / p.duration);
 	                if (t > 1) {
 	                    deletes.push(i);
+	                    continue;
 	                }
-	                x = p.sx * (1 - t) + p.tx * t;
-	                y = p.sy * (1 - t) + p.ty * t;                
+	                x = Math.floor(p.sx * (1 - t) + p.tx * t);
+	                y = Math.floor(p.sy * (1 - t) + p.ty * t);
 	                viz.context.beginPath();
 	                if (viz.config.particle_blur !== "0") {
 	                    viz.context.shadowColor = p.color;
@@ -486,6 +486,21 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        .attr("stroke-dashoffset", function(d) { return (d.width * 5); })
 	                        .call(function(p) { viz.antAnimate(p); });
 	                });
+	        },
+
+	        getShadow: function(d) {
+	            var viz = this;
+	            var clr = "";
+	            if (viz.config.node_shadow_mode === "disabled"){
+	                return null;
+	            } else if (viz.config.node_shadow_mode === "darker1"){
+	                clr = tinycolor(d.color).darken(10).toString()
+	            } else if (viz.config.node_shadow_mode === "darker2"){
+	                clr = tinycolor(d.color).darken(20).toString();
+	            } else {
+	                clr = viz.config.node_shadow_color;
+	            }
+	            return "0 3px 6px " + tinycolor(clr).setAlpha(0.16).toRgbString() + ", 0 3px 6px " + tinycolor(clr).setAlpha(0.23).toRgbString();
 	        },
 
 	        doDraw: function() {
@@ -614,7 +629,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .attr("class", "flow_map_viz-svg")
 	                    .attr("width", viz.config.containerWidth + "px")
 	                    .attr("height", viz.config.containerHeight + "px")
-	                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight])                
+	                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight])
 	                viz.svgNodes = d3.create("svg")
 	                    .attr("class", "flow_map_viz-svgNodes")
 	                    .attr("width", viz.config.containerWidth + "px")
@@ -629,33 +644,19 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                if (viz.hasOwnProperty("timer")) {
 	                    viz.timer.stop(); 
 	                } 
-	                viz.$container_wrap.append(viz.svg.node());               
+	                viz.$container_wrap.append(viz.svg.node());
 	                if (viz.config.renderer === "canvas") {
 	                    viz.canvas = d3.create("canvas")
 	                        .attr("class", "flow_map_viz-canvas")
 	                        .attr("width", viz.config.containerWidth)
 	                        .attr("height", viz.config.containerHeight);
 	                    viz.$container_wrap.append(viz.canvas.node());
-	                    viz.context = viz.canvas.node().getContext("2d")                    
+	                    viz.context = viz.canvas.node().getContext("2d")
 	                    viz.timer = d3.timer(function() {
 	                        viz.updateCanvas();
 	                    });
 	                }
 	                viz.$container_wrap.append(viz.svgNodes.node());
-	                // Add the drop shadow with IE11 and edge support
-	                viz.shadow_id = viz.instance_id + "_" + (viz.instance_id_ctr++);
-	                // This doesnt work in IE11 and Edge: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/18760697/
-	                //var filter = svg.append("filter").attr("id", shadow_id).append("feDropShadow").attr("flood-opacity", viz.config.shadow === "show" ? 0.3 : 0).attr("dx", 0).attr("dy", 1);
-	                var defs = viz.svgNodes.append("defs");
-	                // height=120% so that the shadow is not clipped
-	                var filter = defs.append("filter").attr("id", viz.shadow_id).attr("height", "120%");
-	                // From: http://bl.ocks.org/cpbotha/raw/5200394/dropshadow.js with tweaks.
-	                filter.append("feGaussianBlur").attr("in", "SourceAlpha").attr("stdDeviation", 2).attr("result", viz.shadow_id + "A");
-	                filter.append("feColorMatrix").attr("in", viz.shadow_id + "A").attr("type","matrix").attr("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 " + (viz.config.node_shadow === "show" ? 0.35 : 0) + " 0").attr("result", viz.shadow_id + "B");
-	                filter.append("feOffset").attr("in", viz.shadow_id + "B").attr("dx", 0).attr("dy", 1).attr("result", viz.shadow_id + "C");
-	                var feMerge = filter.append("feMerge");
-	                feMerge.append("feMergeNode").attr("in", viz.shadow_id + "C");
-	                feMerge.append("feMergeNode").attr("in", "SourceGraphic");
 
 	                // Add groups in the correct order for layering
 	                viz.linkGroup = viz.svg.append("g")
@@ -663,23 +664,15 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .attr("class", "flow_map_viz-links");
 	                viz.particleGroup = viz.svg.append("g")
 	                    .attr("class", "flow_map_viz-particles");
-	                viz.linkLabelGroup = viz.svgNodes.append("g")
-	                    .style("text-anchor", "middle")
-	                    .style("font", viz.config.link_text_size + "px sans-serif")
-	                    .attr("fill", viz.config.link_label_color)
-	                    .attr("class", "flow_map_viz-linklabels");
-	                viz.nodeGroup = viz.svgNodes.append("g")
-	                    .attr("class", "flow_map_viz-nodes");
-	                // Create html components
-	                viz.linkLabelGroupHTML = d3.create("div")
+	                viz.linkLabelGroup = d3.create("div")
 	                    .style("font", viz.config.link_text_size + "px sans-serif")
 	                    .style("color", viz.config.link_label_color)
-	                    .attr("class", "flow_map_viz-htmllinklabels");
-	                viz.nodeGroupHTML = d3.create("div")
+	                    .attr("class", "flow_map_viz-linklabels");
+	                viz.nodeGroup = d3.create("div")
 	                    .style("font", viz.config.node_text_size + "px sans-serif")
 	                    .style("color", viz.config.node_text_color)
-	                    .attr("class", "flow_map_viz-htmlnodelabels");
-	                viz.$container_wrap.append(viz.linkLabelGroupHTML.node(), viz.nodeGroupHTML.node());
+	                    .attr("class", "flow_map_viz-nodelabels");
+	                viz.$container_wrap.append(viz.linkLabelGroup.node(), viz.nodeGroup.node());
 
 	                // Add a button that allows copying the current positions to the clipboard
 	                viz.positionsButton = $("<span class='flow_map_viz-copylink'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
@@ -713,50 +706,31 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .alphaTarget(0)
 	                    .on("tick", function() {
 	                        //if (! viz.hasOwnProperty("isFinishedDrawing") || (viz.isFinishedDrawing + 100) > (new Date).getTime()) { console.log("skip"); return; }
-	                        console.log("force tick");
+	                        //console.log("force tick");
 	                        // When stuff is dragged, or when the forces are being simulated, move items
 	                        viz.nodeSelection
-	                            //.attr("opacity", 1)
-	                            .attr("transform", function(d) {
+	                            .style("transform", function(d) {
 	                                // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
 	                                if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
 	                                d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
 	                                d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
-	                                //d.x = Math.max(0, Math.min(viz.config.containerWidth, d.x));
-	                                //d.y = Math.max(0, Math.min(viz.config.containerHeight, d.y));
-	                                return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")";
-	                            });
-	                        if (viz.config.labels_as_html !== "no") {
-	                            viz.nodeSelectionHTML.style("transform", function(d) {
 	                                return "translate(" + (d.x - d.width / 2) + "px," + (d.y - d.height / 2) + "px)";
 	                            });
-	                        }
 
 	                        viz.linkSelection
 	                            .attr("x1", function(d){ if (isNaN(d.source.x)) { console.log("there is no d.source.x on tick", JSON.stringify(d)); }return d.source.x || 0; })
 	                            .attr("y1", function(d){ return d.source.y || 0; })
 	                            .attr("x2", function(d){ return d.target.x || 0; })
 	                            .attr("y2", function(d){ return d.target.y || 0; }); 
-	                        
-	                        if (viz.config.labels_as_html === "no") {
-	                            viz.linkLabelSelection
-	                                .attr("transform", function(d) {
-	                                    var minx = Math.min(d.source.x, d.target.x);
-	                                    var maxx = Math.max(d.source.x, d.target.x);
-	                                    var miny = Math.min(d.source.y, d.target.y);
-	                                    var maxy = Math.max(d.source.y, d.target.y); 
-	                                    return "translate(" + ((maxx - minx) * 0.5 + minx + Number(d.labelx)) + "," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3) + Number(d.labely)) + ")";
-	                                });
-	                        } else {
-	                            viz.linkLabelSelectionHTML
-	                                .style("transform", function(d) {
-	                                    var minx = Math.min(d.source.x, d.target.x);
-	                                    var maxx = Math.max(d.source.x, d.target.x);
-	                                    var miny = Math.min(d.source.y, d.target.y);
-	                                    var maxy = Math.max(d.source.y, d.target.y); 
-	                                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
-	                                });
-	                        }
+
+	                        viz.linkLabelSelection
+	                            .style("transform", function(d) {
+	                                var minx = Math.min(d.source.x, d.target.x);
+	                                var maxx = Math.max(d.source.x, d.target.x);
+	                                var miny = Math.min(d.source.y, d.target.y);
+	                                var maxy = Math.max(d.source.y, d.target.y); 
+	                                return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
+	                            });
 	                    });
 	            }
 
@@ -765,100 +739,74 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            viz.loadPositions();
 
-	            // Add the node group element to the page
 	            viz.nodeSelection = viz.nodeGroup
-	                .selectAll("g")
+	                .selectAll("div")
 	                .data(viz.nodeData, function(d){ return d.id; });
 
-	            viz.nodeSelection.exit()
-	                .remove()
-	                .call(function(selection){
-	                    console.log("node removed: ", JSON.stringify(selection));
-	                });
+	            viz.nodeSelection.exit().remove();
 
 	            viz.nodeSelection.enter()
-	                .append("g")
+	                .append("div")
 	                .attr("class", "flow_map_viz-nodeset") 
-	                //.attr("opacity", 0)
-	                .attr("transform", function(d) { return "translate(" + (d.x - d.width / 2) + "," + (d.y - d.height / 2) + ")"; })
 	                .on("dblclick", function(d){ 
-	                    // Remove fixed position on double click
+	                // Remove fixed position on double click
 	                    d.fx = null;
 	                    d.fy = null;
 	                })
 	                .call(function(selection){
-	                    //console.log("node added: ", JSON.stringify(selection));
 	                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                        .append("text")
-	                        .attr("class", "flow_map_viz-nodeicon")
-	                        .attr("stroke", viz.config.node_border_color)
-	                        .attr("stroke-width", viz.config.node_border_width);
-	                    selection.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
-	                        .append("rect")
-	                        .attr("stroke", viz.config.node_border_color)
-	                        .attr("stroke-width", viz.config.node_border_width);
-	                    if (viz.config.labels_as_html === "no") {
-	                        selection.append("text")
-	                            .attr("class", "flow_map_viz-nodelabel");
-	                    }
-	                    selection.append("title")
-	                        .text(function(d) { return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); });
+	                        .append("i")
+	                        .attr("class", "flow_map_viz-nodeicon");
+	                    selection
+	                        .append("div")
+	                        .attr("class", "flow_map_viz-nodelabel");
 	                })
 	                .call(viz.drag(viz.simulation));
 
 	            // Reselect everything
 	            viz.nodeSelection = viz.nodeGroup
-	                .selectAll("g");
+	                .selectAll(".flow_map_viz-nodeset");
 
-	            // icon types - setup as font awesome icons
-	            viz.nodeSelection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                .select(".flow_map_viz-nodeicon")
-	                .attr("class", "fas")
-	                .style('text-anchor', 'middle')
-	                .style('font-size', function(d){ return d.radius * 1.5 + "px"; })
-	                .attr("x", function(d){ return d.width / 2; })
-	                .attr("y", function(d){ return d.height / 2 + d.radius / 2; } )
-	                .text(function(d){ return viz.fontAwesomeMap.hasOwnProperty(d.icon) ? viz.fontAwesomeMap[d.icon] : d.icon; })
-	                .attr("fill", function(d){ return d.color; })
-	                .attr("filter", "url(#" + viz.shadow_id + ")")
-	                .style("opacity", function(d){ return d.opacity; });
+	            viz.nodeSelection
+	                .attr("title", function(d){ return d.label + ((d.label !== d.id) ? " (" + d.id + ")" : ""); })
+	                .style("width", function(d){ return d.width + "px"; })
+	                .style("height", function(d){ return d.height + "px"; })
+	                .style("opacity", function(d){ return d.opacity; })
+	                .call(function(selection){
+	                    // non icon types
+	                    selection
+	                        .filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== "");})
+	                        .style("border", function(d){ 
+	                            if (viz.config.node_border_mode === "darker1") {
+	                                return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(10).toString();
+	                            } else if (viz.config.node_border_mode === "darker2") {
+	                                return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(20).toString();
+	                            } else {
+	                                return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
+	                            }
+	                        })
+	                        .style("box-shadow", function(d){ return viz.getShadow(d); })
+	                        .style("border-radius", function(d){ return d.rx + "px"; })
+	                        .style("background-color", function(d){ return d.color; })
+	                        .style("opacity", function(d){ return d.opacity; });
 
-	            // non-icons - should be rects (can be circles too with the right rx)
-	            viz.nodeSelection.filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== ""); })
-	                .select("rect")
-	                .attr("width", function(d){ return d.width; })
-	                .attr("height", function(d){ return d.height; })
-	                .attr("rx", function(d){ return d.rx; })
-	                .attr("fill", function(d){ return d.color; })
-	                .attr("filter", "url(#" + viz.shadow_id + ")")
-	                .style("opacity", function(d){ return d.opacity; });
+	                    // icon types - setup as font awesome icons
+	                    selection
+	                        .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                        .select(".flow_map_viz-nodeicon")
+	                        .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon })
+	                        .style("font-size", function(d){ return d.height + "px"; })
+	                        .style("color", function(d){ return d.color; })
+	                        .style("text-shadow",  function(d){ return viz.getShadow(d); })
+	                        .style("opacity", function(d){ return d.opacity; });
 
-	            // add the text label to the icon/rect
-	            if (viz.config.labels_as_html === "no") {
-	                viz.nodeSelection
-	                    .select(".flow_map_viz-nodelabel")
-	                    .attr("x", function(d){ return d.width / 2 + Number(d.labelx); })
-	                    .attr("y", function(d){ return (d.height / 2) + (viz.config.node_text_size * 0.3) + Number(d.labely); })
-	                    .attr("fill", viz.config.node_text_color)
-	                    .style("font", viz.config.node_text_size + "px sans-serif")
-	                    .style("text-anchor", "middle")
-	                    // TODO  should allow multiline labels
-	                    .text(function(d) { return d.label; });
-	            } else {
-	                // Do the html labels
-	                viz.nodeSelectionHTML = viz.nodeGroupHTML
-	                    .selectAll("div")
-	                    .data(viz.nodeData, function(d){ return d.id; })
-	                    .join("div");
-
-	                viz.nodeSelectionHTML = viz.nodeGroupHTML
-	                    .selectAll("div")
-	                    .style("left", function(d){ return d.labelx + "px"; })
-	                    .style("top", function(d){ return d.labely + "px"; })
-	                    .style("width", function(d){ return d.width + "px"; })
-	                    .style("height", function(d){ return d.height + "px"; })
-	                    .html(function(d) { return d.label; });
-	            }
+	                    // set then label
+	                    selection
+	                        .select(".flow_map_viz-nodelabel")
+	                        .style("margin-left", function(d){ return d.labelx + "px"; })
+	                        .style("margin-top", function(d){ return d.labely + "px"; })
+	                        .html(function(d) { return d.label; })
+	                });
 
 	            // Create the links (edges) as d3 objects
 	            viz.linkSelection = viz.linkGroup
@@ -880,53 +828,23 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .call(function(p) {  viz.antAnimate(p); });
 	            }
 
-	            // Link labels
-	            if (viz.config.labels_as_html === "no") {
-	                viz.linkLabelSelection = viz.linkLabelGroup
-	                    .selectAll("g")
-	                    .data(viz.linkData, function(d){ return d.id; })
+	            viz.linkLabelSelection = viz.linkLabelGroup
+	                .selectAll("div")
+	                .data(viz.linkData, function(d){ return d.id; });
+	            
+	            viz.linkLabelSelection
+	                .join("div");
 
-	                viz.linkLabelSelection.enter()
-	                    .append("g")
-	                    .call(function(selection){
-	                        selection.append("text");
-	                        selection.append("title");
-	                });
-	                viz.linkLabelSelection.exit().remove();
+	            viz.linkLabelSelection = viz.linkLabelGroup
+	                .selectAll("div")
+	                .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
+	                .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
+	                .attr("title", function(d) { return d.tooltip; })
+	                .html(function(d) { return d.label; })
 
-	                // reselect link labels
-	                viz.linkLabelSelection = viz.linkLabelGroup
-	                    .selectAll("g");
-
-	                viz.linkLabelSelection
-	                    .select("text")
-	                    .selectAll("tspan")
-	                        .data(function(d) { return d.label.split("|"); })
-	                        .join("tspan")
-	                        .text(function(d) { return d; })
-	                        .attr("x", 0)
-	                        .attr("y", function(d,i){ return i * viz.config.link_text_size * 1.2; });
-	                viz.linkLabelSelection.select("title")
-	                    .text(function(d) { return d.tooltip; });
-	            } else {
-	                viz.linkLabelSelectionHTML = viz.linkLabelGroupHTML
-	                    .selectAll("div")
-	                    .data(viz.linkData, function(d){ return d.id; });
-	                viz.linkLabelSelectionHTML
-	                    .join("div");
-
-	                viz.linkLabelSelectionHTML = viz.linkLabelGroupHTML
-	                    .selectAll("div")
-	                    .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
-	                    .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
-	                    .attr("title", function(d) { return d.tooltip; })
-	                    .html(function(d) { return d.label; })
-
-	            }
-
+	            // do all particles again
 	            clearTimeout(viz.startParticlesTimeout);
 	            viz.startParticlesTimeout = setTimeout(function(){
-	                // do all particles again
 	                viz.startParticles();
 	            }, viz.delayUntilParticles);
 
@@ -950,1394 +868,1202 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                count: 10000
 	            });
 	        },
+	    };
 
-	        fontAwesomeMap: {
-	            "500px":"\uf26e",
-	            "accessible-icon":"\uf368",
-	            "accusoft":"\uf369",
-	            "acquisitions-incorporated":"\uf6af",
-	            "ad":"\uf641",
-	            "address-book":"\uf2b9",
-	            "address-card":"\uf2bb",
-	            "adjust":"\uf042",
-	            "adn":"\uf170",
-	            "adobe":"\uf778",
-	            "adversal":"\uf36a",
-	            "affiliatetheme":"\uf36b",
-	            "air-freshener":"\uf5d0",
-	            "airbnb":"\uf834",
-	            "algolia":"\uf36c",
-	            "align-center":"\uf037",
-	            "align-justify":"\uf039",
-	            "align-left":"\uf036",
-	            "align-right":"\uf038",
-	            "alipay":"\uf642",
-	            "allergies":"\uf461",
-	            "amazon":"\uf270",
-	            "amazon-pay":"\uf42c",
-	            "ambulance":"\uf0f9",
-	            "american-sign-language-interpreting":"\uf2a3",
-	            "amilia":"\uf36d",
-	            "anchor":"\uf13d",
-	            "android":"\uf17b",
-	            "angellist":"\uf209",
-	            "angle-double-down":"\uf103",
-	            "angle-double-left":"\uf100",
-	            "angle-double-right":"\uf101",
-	            "angle-double-up":"\uf102",
-	            "angle-down":"\uf107",
-	            "angle-left":"\uf104",
-	            "angle-right":"\uf105",
-	            "angle-up":"\uf106",
-	            "angry":"\uf556",
-	            "angrycreative":"\uf36e",
-	            "angular":"\uf420",
-	            "ankh":"\uf644",
-	            "app-store":"\uf36f",
-	            "app-store-ios":"\uf370",
-	            "apper":"\uf371",
-	            "apple":"\uf179",
-	            "apple-alt":"\uf5d1",
-	            "apple-pay":"\uf415",
-	            "archive":"\uf187",
-	            "archway":"\uf557",
-	            "arrow-alt-circle-down":"\uf358",
-	            "arrow-alt-circle-left":"\uf359",
-	            "arrow-alt-circle-right":"\uf35a",
-	            "arrow-alt-circle-up":"\uf35b",
-	            "arrow-circle-down":"\uf0ab",
-	            "arrow-circle-left":"\uf0a8",
-	            "arrow-circle-right":"\uf0a9",
-	            "arrow-circle-up":"\uf0aa",
-	            "arrow-down":"\uf063",
-	            "arrow-left":"\uf060",
-	            "arrow-right":"\uf061",
-	            "arrow-up":"\uf062",
-	            "arrows-alt":"\uf0b2",
-	            "arrows-alt-h":"\uf337",
-	            "arrows-alt-v":"\uf338",
-	            "artstation":"\uf77a",
-	            "assistive-listening-systems":"\uf2a2",
-	            "asterisk":"\uf069",
-	            "asymmetrik":"\uf372",
-	            "at":"\uf1fa",
-	            "atlas":"\uf558",
-	            "atlassian":"\uf77b",
-	            "atom":"\uf5d2",
-	            "audible":"\uf373",
-	            "audio-description":"\uf29e",
-	            "autoprefixer":"\uf41c",
-	            "avianex":"\uf374",
-	            "aviato":"\uf421",
-	            "award":"\uf559",
-	            "aws":"\uf375",
-	            "baby":"\uf77c",
-	            "baby-carriage":"\uf77d",
-	            "backspace":"\uf55a",
-	            "backward":"\uf04a",
-	            "bacon":"\uf7e5",
-	            "balance-scale":"\uf24e",
-	            "balance-scale-left":"\uf515",
-	            "balance-scale-right":"\uf516",
-	            "ban":"\uf05e",
-	            "band-aid":"\uf462",
-	            "bandcamp":"\uf2d5",
-	            "barcode":"\uf02a",
-	            "bars":"\uf0c9",
-	            "baseball-ball":"\uf433",
-	            "basketball-ball":"\uf434",
-	            "bath":"\uf2cd",
-	            "battery-empty":"\uf244",
-	            "battery-full":"\uf240",
-	            "battery-half":"\uf242",
-	            "battery-quarter":"\uf243",
-	            "battery-three-quarters":"\uf241",
-	            "battle-net":"\uf835",
-	            "bed":"\uf236",
-	            "beer":"\uf0fc",
-	            "behance":"\uf1b4",
-	            "behance-square":"\uf1b5",
-	            "bell":"\uf0f3",
-	            "bell-slash":"\uf1f6",
-	            "bezier-curve":"\uf55b",
-	            "bible":"\uf647",
-	            "bicycle":"\uf206",
-	            "biking":"\uf84a",
-	            "bimobject":"\uf378",
-	            "binoculars":"\uf1e5",
-	            "biohazard":"\uf780",
-	            "birthday-cake":"\uf1fd",
-	            "bitbucket":"\uf171",
-	            "bitcoin":"\uf379",
-	            "bity":"\uf37a",
-	            "black-tie":"\uf27e",
-	            "blackberry":"\uf37b",
-	            "blender":"\uf517",
-	            "blender-phone":"\uf6b6",
-	            "blind":"\uf29d",
-	            "blog":"\uf781",
-	            "blogger":"\uf37c",
-	            "blogger-b":"\uf37d",
-	            "bluetooth":"\uf293",
-	            "bluetooth-b":"\uf294",
-	            "bold":"\uf032",
-	            "bolt":"\uf0e7",
-	            "bomb":"\uf1e2",
-	            "bone":"\uf5d7",
-	            "bong":"\uf55c",
-	            "book":"\uf02d",
-	            "book-dead":"\uf6b7",
-	            "book-medical":"\uf7e6",
-	            "book-open":"\uf518",
-	            "book-reader":"\uf5da",
-	            "bookmark":"\uf02e",
-	            "bootstrap":"\uf836",
-	            "border-all":"\uf84c",
-	            "border-none":"\uf850",
-	            "border-style":"\uf853",
-	            "bowling-ball":"\uf436",
-	            "box":"\uf466",
-	            "box-open":"\uf49e",
-	            "boxes":"\uf468",
-	            "braille":"\uf2a1",
-	            "brain":"\uf5dc",
-	            "bread-slice":"\uf7ec",
-	            "briefcase":"\uf0b1",
-	            "briefcase-medical":"\uf469",
-	            "broadcast-tower":"\uf519",
-	            "broom":"\uf51a",
-	            "brush":"\uf55d",
-	            "btc":"\uf15a",
-	            "buffer":"\uf837",
-	            "bug":"\uf188",
-	            "building":"\uf1ad",
-	            "bullhorn":"\uf0a1",
-	            "bullseye":"\uf140",
-	            "burn":"\uf46a",
-	            "buromobelexperte":"\uf37f",
-	            "bus":"\uf207",
-	            "bus-alt":"\uf55e",
-	            "business-time":"\uf64a",
-	            "buysellads":"\uf20d",
-	            "calculator":"\uf1ec",
-	            "calendar":"\uf133",
-	            "calendar-alt":"\uf073",
-	            "calendar-check":"\uf274",
-	            "calendar-day":"\uf783",
-	            "calendar-minus":"\uf272",
-	            "calendar-plus":"\uf271",
-	            "calendar-times":"\uf273",
-	            "calendar-week":"\uf784",
-	            "camera":"\uf030",
-	            "camera-retro":"\uf083",
-	            "campground":"\uf6bb",
-	            "canadian-maple-leaf":"\uf785",
-	            "candy-cane":"\uf786",
-	            "cannabis":"\uf55f",
-	            "capsules":"\uf46b",
-	            "car":"\uf1b9",
-	            "car-alt":"\uf5de",
-	            "car-battery":"\uf5df",
-	            "car-crash":"\uf5e1",
-	            "car-side":"\uf5e4",
-	            "caret-down":"\uf0d7",
-	            "caret-left":"\uf0d9",
-	            "caret-right":"\uf0da",
-	            "caret-square-down":"\uf150",
-	            "caret-square-left":"\uf191",
-	            "caret-square-right":"\uf152",
-	            "caret-square-up":"\uf151",
-	            "caret-up":"\uf0d8",
-	            "carrot":"\uf787",
-	            "cart-arrow-down":"\uf218",
-	            "cart-plus":"\uf217",
-	            "cash-register":"\uf788",
-	            "cat":"\uf6be",
-	            "cc-amazon-pay":"\uf42d",
-	            "cc-amex":"\uf1f3",
-	            "cc-apple-pay":"\uf416",
-	            "cc-diners-club":"\uf24c",
-	            "cc-discover":"\uf1f2",
-	            "cc-jcb":"\uf24b",
-	            "cc-mastercard":"\uf1f1",
-	            "cc-paypal":"\uf1f4",
-	            "cc-stripe":"\uf1f5",
-	            "cc-visa":"\uf1f0",
-	            "centercode":"\uf380",
-	            "centos":"\uf789",
-	            "certificate":"\uf0a3",
-	            "chair":"\uf6c0",
-	            "chalkboard":"\uf51b",
-	            "chalkboard-teacher":"\uf51c",
-	            "charging-station":"\uf5e7",
-	            "chart-area":"\uf1fe",
-	            "chart-bar":"\uf080",
-	            "chart-line":"\uf201",
-	            "chart-pie":"\uf200",
-	            "check":"\uf00c",
-	            "check-circle":"\uf058",
-	            "check-double":"\uf560",
-	            "check-square":"\uf14a",
-	            "cheese":"\uf7ef",
-	            "chess":"\uf439",
-	            "chess-bishop":"\uf43a",
-	            "chess-board":"\uf43c",
-	            "chess-king":"\uf43f",
-	            "chess-knight":"\uf441",
-	            "chess-pawn":"\uf443",
-	            "chess-queen":"\uf445",
-	            "chess-rook":"\uf447",
-	            "chevron-circle-down":"\uf13a",
-	            "chevron-circle-left":"\uf137",
-	            "chevron-circle-right":"\uf138",
-	            "chevron-circle-up":"\uf139",
-	            "chevron-down":"\uf078",
-	            "chevron-left":"\uf053",
-	            "chevron-right":"\uf054",
-	            "chevron-up":"\uf077",
-	            "child":"\uf1ae",
-	            "chrome":"\uf268",
-	            "chromecast":"\uf838",
-	            "church":"\uf51d",
-	            "circle":"\uf111",
-	            "circle-notch":"\uf1ce",
-	            "city":"\uf64f",
-	            "clinic-medical":"\uf7f2",
-	            "clipboard":"\uf328",
-	            "clipboard-check":"\uf46c",
-	            "clipboard-list":"\uf46d",
-	            "clock":"\uf017",
-	            "clone":"\uf24d",
-	            "closed-captioning":"\uf20a",
-	            "cloud":"\uf0c2",
-	            "cloud-download-alt":"\uf381",
-	            "cloud-meatball":"\uf73b",
-	            "cloud-moon":"\uf6c3",
-	            "cloud-moon-rain":"\uf73c",
-	            "cloud-rain":"\uf73d",
-	            "cloud-showers-heavy":"\uf740",
-	            "cloud-sun":"\uf6c4",
-	            "cloud-sun-rain":"\uf743",
-	            "cloud-upload-alt":"\uf382",
-	            "cloudscale":"\uf383",
-	            "cloudsmith":"\uf384",
-	            "cloudversify":"\uf385",
-	            "cocktail":"\uf561",
-	            "code":"\uf121",
-	            "code-branch":"\uf126",
-	            "codepen":"\uf1cb",
-	            "codiepie":"\uf284",
-	            "coffee":"\uf0f4",
-	            "cog":"\uf013",
-	            "cogs":"\uf085",
-	            "coins":"\uf51e",
-	            "columns":"\uf0db",
-	            "comment":"\uf075",
-	            "comment-alt":"\uf27a",
-	            "comment-dollar":"\uf651",
-	            "comment-dots":"\uf4ad",
-	            "comment-medical":"\uf7f5",
-	            "comment-slash":"\uf4b3",
-	            "comments":"\uf086",
-	            "comments-dollar":"\uf653",
-	            "compact-disc":"\uf51f",
-	            "compass":"\uf14e",
-	            "compress":"\uf066",
-	            "compress-arrows-alt":"\uf78c",
-	            "concierge-bell":"\uf562",
-	            "confluence":"\uf78d",
-	            "connectdevelop":"\uf20e",
-	            "contao":"\uf26d",
-	            "cookie":"\uf563",
-	            "cookie-bite":"\uf564",
-	            "copy":"\uf0c5",
-	            "copyright":"\uf1f9",
-	            "couch":"\uf4b8",
-	            "cpanel":"\uf388",
-	            "creative-commons":"\uf25e",
-	            "creative-commons-by":"\uf4e7",
-	            "creative-commons-nc":"\uf4e8",
-	            "creative-commons-nc-eu":"\uf4e9",
-	            "creative-commons-nc-jp":"\uf4ea",
-	            "creative-commons-nd":"\uf4eb",
-	            "creative-commons-pd":"\uf4ec",
-	            "creative-commons-pd-alt":"\uf4ed",
-	            "creative-commons-remix":"\uf4ee",
-	            "creative-commons-sa":"\uf4ef",
-	            "creative-commons-sampling":"\uf4f0",
-	            "creative-commons-sampling-plus":"\uf4f1",
-	            "creative-commons-share":"\uf4f2",
-	            "creative-commons-zero":"\uf4f3",
-	            "credit-card":"\uf09d",
-	            "critical-role":"\uf6c9",
-	            "crop":"\uf125",
-	            "crop-alt":"\uf565",
-	            "cross":"\uf654",
-	            "crosshairs":"\uf05b",
-	            "crow":"\uf520",
-	            "crown":"\uf521",
-	            "crutch":"\uf7f7",
-	            "css3":"\uf13c",
-	            "css3-alt":"\uf38b",
-	            "cube":"\uf1b2",
-	            "cubes":"\uf1b3",
-	            "cut":"\uf0c4",
-	            "cuttlefish":"\uf38c",
-	            "d-and-d":"\uf38d",
-	            "d-and-d-beyond":"\uf6ca",
-	            "dashcube":"\uf210",
-	            "database":"\uf1c0",
-	            "deaf":"\uf2a4",
-	            "delicious":"\uf1a5",
-	            "democrat":"\uf747",
-	            "deploydog":"\uf38e",
-	            "deskpro":"\uf38f",
-	            "desktop":"\uf108",
-	            "dev":"\uf6cc",
-	            "deviantart":"\uf1bd",
-	            "dharmachakra":"\uf655",
-	            "dhl":"\uf790",
-	            "diagnoses":"\uf470",
-	            "diaspora":"\uf791",
-	            "dice":"\uf522",
-	            "dice-d20":"\uf6cf",
-	            "dice-d6":"\uf6d1",
-	            "dice-five":"\uf523",
-	            "dice-four":"\uf524",
-	            "dice-one":"\uf525",
-	            "dice-six":"\uf526",
-	            "dice-three":"\uf527",
-	            "dice-two":"\uf528",
-	            "digg":"\uf1a6",
-	            "digital-ocean":"\uf391",
-	            "digital-tachograph":"\uf566",
-	            "directions":"\uf5eb",
-	            "discord":"\uf392",
-	            "discourse":"\uf393",
-	            "divide":"\uf529",
-	            "dizzy":"\uf567",
-	            "dna":"\uf471",
-	            "dochub":"\uf394",
-	            "docker":"\uf395",
-	            "dog":"\uf6d3",
-	            "dollar-sign":"\uf155",
-	            "dolly":"\uf472",
-	            "dolly-flatbed":"\uf474",
-	            "donate":"\uf4b9",
-	            "door-closed":"\uf52a",
-	            "door-open":"\uf52b",
-	            "dot-circle":"\uf192",
-	            "dove":"\uf4ba",
-	            "download":"\uf019",
-	            "draft2digital":"\uf396",
-	            "drafting-compass":"\uf568",
-	            "dragon":"\uf6d5",
-	            "draw-polygon":"\uf5ee",
-	            "dribbble":"\uf17d",
-	            "dribbble-square":"\uf397",
-	            "dropbox":"\uf16b",
-	            "drum":"\uf569",
-	            "drum-steelpan":"\uf56a",
-	            "drumstick-bite":"\uf6d7",
-	            "drupal":"\uf1a9",
-	            "dumbbell":"\uf44b",
-	            "dumpster":"\uf793",
-	            "dumpster-fire":"\uf794",
-	            "dungeon":"\uf6d9",
-	            "dyalog":"\uf399",
-	            "earlybirds":"\uf39a",
-	            "ebay":"\uf4f4",
-	            "edge":"\uf282",
-	            "edit":"\uf044",
-	            "egg":"\uf7fb",
-	            "eject":"\uf052",
-	            "elementor":"\uf430",
-	            "ellipsis-h":"\uf141",
-	            "ellipsis-v":"\uf142",
-	            "ello":"\uf5f1",
-	            "ember":"\uf423",
-	            "empire":"\uf1d1",
-	            "envelope":"\uf0e0",
-	            "envelope-open":"\uf2b6",
-	            "envelope-open-text":"\uf658",
-	            "envelope-square":"\uf199",
-	            "envira":"\uf299",
-	            "equals":"\uf52c",
-	            "eraser":"\uf12d",
-	            "erlang":"\uf39d",
-	            "ethereum":"\uf42e",
-	            "ethernet":"\uf796",
-	            "etsy":"\uf2d7",
-	            "euro-sign":"\uf153",
-	            "evernote":"\uf839",
-	            "exchange-alt":"\uf362",
-	            "exclamation":"\uf12a",
-	            "exclamation-circle":"\uf06a",
-	            "exclamation-triangle":"\uf071",
-	            "expand":"\uf065",
-	            "expand-arrows-alt":"\uf31e",
-	            "expeditedssl":"\uf23e",
-	            "external-link-alt":"\uf35d",
-	            "external-link-square-alt":"\uf360",
-	            "eye":"\uf06e",
-	            "eye-dropper":"\uf1fb",
-	            "eye-slash":"\uf070",
-	            "facebook":"\uf09a",
-	            "facebook-f":"\uf39e",
-	            "facebook-messenger":"\uf39f",
-	            "facebook-square":"\uf082",
-	            "fan":"\uf863",
-	            "fantasy-flight-games":"\uf6dc",
-	            "fast-backward":"\uf049",
-	            "fast-forward":"\uf050",
-	            "fax":"\uf1ac",
-	            "feather":"\uf52d",
-	            "feather-alt":"\uf56b",
-	            "fedex":"\uf797",
-	            "fedora":"\uf798",
-	            "female":"\uf182",
-	            "fighter-jet":"\uf0fb",
-	            "figma":"\uf799",
-	            "file":"\uf15b",
-	            "file-alt":"\uf15c",
-	            "file-archive":"\uf1c6",
-	            "file-audio":"\uf1c7",
-	            "file-code":"\uf1c9",
-	            "file-contract":"\uf56c",
-	            "file-csv":"\uf6dd",
-	            "file-download":"\uf56d",
-	            "file-excel":"\uf1c3",
-	            "file-export":"\uf56e",
-	            "file-image":"\uf1c5",
-	            "file-import":"\uf56f",
-	            "file-invoice":"\uf570",
-	            "file-invoice-dollar":"\uf571",
-	            "file-medical":"\uf477",
-	            "file-medical-alt":"\uf478",
-	            "file-pdf":"\uf1c1",
-	            "file-powerpoint":"\uf1c4",
-	            "file-prescription":"\uf572",
-	            "file-signature":"\uf573",
-	            "file-upload":"\uf574",
-	            "file-video":"\uf1c8",
-	            "file-word":"\uf1c2",
-	            "fill":"\uf575",
-	            "fill-drip":"\uf576",
-	            "film":"\uf008",
-	            "filter":"\uf0b0",
-	            "fingerprint":"\uf577",
-	            "fire":"\uf06d",
-	            "fire-alt":"\uf7e4",
-	            "fire-extinguisher":"\uf134",
-	            "firefox":"\uf269",
-	            "first-aid":"\uf479",
-	            "first-order":"\uf2b0",
-	            "first-order-alt":"\uf50a",
-	            "firstdraft":"\uf3a1",
-	            "fish":"\uf578",
-	            "fist-raised":"\uf6de",
-	            "flag":"\uf024",
-	            "flag-checkered":"\uf11e",
-	            "flag-usa":"\uf74d",
-	            "flask":"\uf0c3",
-	            "flickr":"\uf16e",
-	            "flipboard":"\uf44d",
-	            "flushed":"\uf579",
-	            "fly":"\uf417",
-	            "folder":"\uf07b",
-	            "folder-minus":"\uf65d",
-	            "folder-open":"\uf07c",
-	            "folder-plus":"\uf65e",
-	            "font":"\uf031",
-	            "font-awesome":"\uf2b4",
-	            "font-awesome-alt":"\uf35c",
-	            "font-awesome-flag":"\uf425",
-	            "font-awesome-logo-full":"\uf4e6",
-	            "fonticons":"\uf280",
-	            "fonticons-fi":"\uf3a2",
-	            "football-ball":"\uf44e",
-	            "fort-awesome":"\uf286",
-	            "fort-awesome-alt":"\uf3a3",
-	            "forumbee":"\uf211",
-	            "forward":"\uf04e",
-	            "foursquare":"\uf180",
-	            "free-code-camp":"\uf2c5",
-	            "freebsd":"\uf3a4",
-	            "frog":"\uf52e",
-	            "frown":"\uf119",
-	            "frown-open":"\uf57a",
-	            "fulcrum":"\uf50b",
-	            "funnel-dollar":"\uf662",
-	            "futbol":"\uf1e3",
-	            "galactic-republic":"\uf50c",
-	            "galactic-senate":"\uf50d",
-	            "gamepad":"\uf11b",
-	            "gas-pump":"\uf52f",
-	            "gavel":"\uf0e3",
-	            "gem":"\uf3a5",
-	            "genderless":"\uf22d",
-	            "get-pocket":"\uf265",
-	            "gg":"\uf260",
-	            "gg-circle":"\uf261",
-	            "ghost":"\uf6e2",
-	            "gift":"\uf06b",
-	            "gifts":"\uf79c",
-	            "git":"\uf1d3",
-	            "git-alt":"\uf841",
-	            "git-square":"\uf1d2",
-	            "github":"\uf09b",
-	            "github-alt":"\uf113",
-	            "github-square":"\uf092",
-	            "gitkraken":"\uf3a6",
-	            "gitlab":"\uf296",
-	            "gitter":"\uf426",
-	            "glass-cheers":"\uf79f",
-	            "glass-martini":"\uf000",
-	            "glass-martini-alt":"\uf57b",
-	            "glass-whiskey":"\uf7a0",
-	            "glasses":"\uf530",
-	            "glide":"\uf2a5",
-	            "glide-g":"\uf2a6",
-	            "globe":"\uf0ac",
-	            "globe-africa":"\uf57c",
-	            "globe-americas":"\uf57d",
-	            "globe-asia":"\uf57e",
-	            "globe-europe":"\uf7a2",
-	            "gofore":"\uf3a7",
-	            "golf-ball":"\uf450",
-	            "goodreads":"\uf3a8",
-	            "goodreads-g":"\uf3a9",
-	            "google":"\uf1a0",
-	            "google-drive":"\uf3aa",
-	            "google-play":"\uf3ab",
-	            "google-plus":"\uf2b3",
-	            "google-plus-g":"\uf0d5",
-	            "google-plus-square":"\uf0d4",
-	            "google-wallet":"\uf1ee",
-	            "gopuram":"\uf664",
-	            "graduation-cap":"\uf19d",
-	            "gratipay":"\uf184",
-	            "grav":"\uf2d6",
-	            "greater-than":"\uf531",
-	            "greater-than-equal":"\uf532",
-	            "grimace":"\uf57f",
-	            "grin":"\uf580",
-	            "grin-alt":"\uf581",
-	            "grin-beam":"\uf582",
-	            "grin-beam-sweat":"\uf583",
-	            "grin-hearts":"\uf584",
-	            "grin-squint":"\uf585",
-	            "grin-squint-tears":"\uf586",
-	            "grin-stars":"\uf587",
-	            "grin-tears":"\uf588",
-	            "grin-tongue":"\uf589",
-	            "grin-tongue-squint":"\uf58a",
-	            "grin-tongue-wink":"\uf58b",
-	            "grin-wink":"\uf58c",
-	            "grip-horizontal":"\uf58d",
-	            "grip-lines":"\uf7a4",
-	            "grip-lines-vertical":"\uf7a5",
-	            "grip-vertical":"\uf58e",
-	            "gripfire":"\uf3ac",
-	            "grunt":"\uf3ad",
-	            "guitar":"\uf7a6",
-	            "gulp":"\uf3ae",
-	            "h-square":"\uf0fd",
-	            "hacker-news":"\uf1d4",
-	            "hacker-news-square":"\uf3af",
-	            "hackerrank":"\uf5f7",
-	            "hamburger":"\uf805",
-	            "hammer":"\uf6e3",
-	            "hamsa":"\uf665",
-	            "hand-holding":"\uf4bd",
-	            "hand-holding-heart":"\uf4be",
-	            "hand-holding-usd":"\uf4c0",
-	            "hand-lizard":"\uf258",
-	            "hand-middle-finger":"\uf806",
-	            "hand-paper":"\uf256",
-	            "hand-peace":"\uf25b",
-	            "hand-point-down":"\uf0a7",
-	            "hand-point-left":"\uf0a5",
-	            "hand-point-right":"\uf0a4",
-	            "hand-point-up":"\uf0a6",
-	            "hand-pointer":"\uf25a",
-	            "hand-rock":"\uf255",
-	            "hand-scissors":"\uf257",
-	            "hand-spock":"\uf259",
-	            "hands":"\uf4c2",
-	            "hands-helping":"\uf4c4",
-	            "handshake":"\uf2b5",
-	            "hanukiah":"\uf6e6",
-	            "hard-hat":"\uf807",
-	            "hashtag":"\uf292",
-	            "hat-wizard":"\uf6e8",
-	            "haykal":"\uf666",
-	            "hdd":"\uf0a0",
-	            "heading":"\uf1dc",
-	            "headphones":"\uf025",
-	            "headphones-alt":"\uf58f",
-	            "headset":"\uf590",
-	            "heart":"\uf004",
-	            "heart-broken":"\uf7a9",
-	            "heartbeat":"\uf21e",
-	            "helicopter":"\uf533",
-	            "highlighter":"\uf591",
-	            "hiking":"\uf6ec",
-	            "hippo":"\uf6ed",
-	            "hips":"\uf452",
-	            "hire-a-helper":"\uf3b0",
-	            "history":"\uf1da",
-	            "hockey-puck":"\uf453",
-	            "holly-berry":"\uf7aa",
-	            "home":"\uf015",
-	            "hooli":"\uf427",
-	            "hornbill":"\uf592",
-	            "horse":"\uf6f0",
-	            "horse-head":"\uf7ab",
-	            "hospital":"\uf0f8",
-	            "hospital-alt":"\uf47d",
-	            "hospital-symbol":"\uf47e",
-	            "hot-tub":"\uf593",
-	            "hotdog":"\uf80f",
-	            "hotel":"\uf594",
-	            "hotjar":"\uf3b1",
-	            "hourglass":"\uf254",
-	            "hourglass-end":"\uf253",
-	            "hourglass-half":"\uf252",
-	            "hourglass-start":"\uf251",
-	            "house-damage":"\uf6f1",
-	            "houzz":"\uf27c",
-	            "hryvnia":"\uf6f2",
-	            "html5":"\uf13b",
-	            "hubspot":"\uf3b2",
-	            "i-cursor":"\uf246",
-	            "ice-cream":"\uf810",
-	            "icicles":"\uf7ad",
-	            "icons":"\uf86d",
-	            "id-badge":"\uf2c1",
-	            "id-card":"\uf2c2",
-	            "id-card-alt":"\uf47f",
-	            "igloo":"\uf7ae",
-	            "image":"\uf03e",
-	            "images":"\uf302",
-	            "imdb":"\uf2d8",
-	            "inbox":"\uf01c",
-	            "indent":"\uf03c",
-	            "industry":"\uf275",
-	            "infinity":"\uf534",
-	            "info":"\uf129",
-	            "info-circle":"\uf05a",
-	            "instagram":"\uf16d",
-	            "intercom":"\uf7af",
-	            "internet-explorer":"\uf26b",
-	            "invision":"\uf7b0",
-	            "ioxhost":"\uf208",
-	            "italic":"\uf033",
-	            "itch-io":"\uf83a",
-	            "itunes":"\uf3b4",
-	            "itunes-note":"\uf3b5",
-	            "java":"\uf4e4",
-	            "jedi":"\uf669",
-	            "jedi-order":"\uf50e",
-	            "jenkins":"\uf3b6",
-	            "jira":"\uf7b1",
-	            "joget":"\uf3b7",
-	            "joint":"\uf595",
-	            "joomla":"\uf1aa",
-	            "journal-whills":"\uf66a",
-	            "js":"\uf3b8",
-	            "js-square":"\uf3b9",
-	            "jsfiddle":"\uf1cc",
-	            "kaaba":"\uf66b",
-	            "kaggle":"\uf5fa",
-	            "key":"\uf084",
-	            "keybase":"\uf4f5",
-	            "keyboard":"\uf11c",
-	            "keycdn":"\uf3ba",
-	            "khanda":"\uf66d",
-	            "kickstarter":"\uf3bb",
-	            "kickstarter-k":"\uf3bc",
-	            "kiss":"\uf596",
-	            "kiss-beam":"\uf597",
-	            "kiss-wink-heart":"\uf598",
-	            "kiwi-bird":"\uf535",
-	            "korvue":"\uf42f",
-	            "landmark":"\uf66f",
-	            "language":"\uf1ab",
-	            "laptop":"\uf109",
-	            "laptop-code":"\uf5fc",
-	            "laptop-medical":"\uf812",
-	            "laravel":"\uf3bd",
-	            "lastfm":"\uf202",
-	            "lastfm-square":"\uf203",
-	            "laugh":"\uf599",
-	            "laugh-beam":"\uf59a",
-	            "laugh-squint":"\uf59b",
-	            "laugh-wink":"\uf59c",
-	            "layer-group":"\uf5fd",
-	            "leaf":"\uf06c",
-	            "leanpub":"\uf212",
-	            "lemon":"\uf094",
-	            "less":"\uf41d",
-	            "less-than":"\uf536",
-	            "less-than-equal":"\uf537",
-	            "level-down-alt":"\uf3be",
-	            "level-up-alt":"\uf3bf",
-	            "life-ring":"\uf1cd",
-	            "lightbulb":"\uf0eb",
-	            "line":"\uf3c0",
-	            "link":"\uf0c1",
-	            "linkedin":"\uf08c",
-	            "linkedin-in":"\uf0e1",
-	            "linode":"\uf2b8",
-	            "linux":"\uf17c",
-	            "lira-sign":"\uf195",
-	            "list":"\uf03a",
-	            "list-alt":"\uf022",
-	            "list-ol":"\uf0cb",
-	            "list-ul":"\uf0ca",
-	            "location-arrow":"\uf124",
-	            "lock":"\uf023",
-	            "lock-open":"\uf3c1",
-	            "long-arrow-alt-down":"\uf309",
-	            "long-arrow-alt-left":"\uf30a",
-	            "long-arrow-alt-right":"\uf30b",
-	            "long-arrow-alt-up":"\uf30c",
-	            "low-vision":"\uf2a8",
-	            "luggage-cart":"\uf59d",
-	            "lyft":"\uf3c3",
-	            "magento":"\uf3c4",
-	            "magic":"\uf0d0",
-	            "magnet":"\uf076",
-	            "mail-bulk":"\uf674",
-	            "mailchimp":"\uf59e",
-	            "male":"\uf183",
-	            "mandalorian":"\uf50f",
-	            "map":"\uf279",
-	            "map-marked":"\uf59f",
-	            "map-marked-alt":"\uf5a0",
-	            "map-marker":"\uf041",
-	            "map-marker-alt":"\uf3c5",
-	            "map-pin":"\uf276",
-	            "map-signs":"\uf277",
-	            "markdown":"\uf60f",
-	            "marker":"\uf5a1",
-	            "mars":"\uf222",
-	            "mars-double":"\uf227",
-	            "mars-stroke":"\uf229",
-	            "mars-stroke-h":"\uf22b",
-	            "mars-stroke-v":"\uf22a",
-	            "mask":"\uf6fa",
-	            "mastodon":"\uf4f6",
-	            "maxcdn":"\uf136",
-	            "medal":"\uf5a2",
-	            "medapps":"\uf3c6",
-	            "medium":"\uf23a",
-	            "medium-m":"\uf3c7",
-	            "medkit":"\uf0fa",
-	            "medrt":"\uf3c8",
-	            "meetup":"\uf2e0",
-	            "megaport":"\uf5a3",
-	            "meh":"\uf11a",
-	            "meh-blank":"\uf5a4",
-	            "meh-rolling-eyes":"\uf5a5",
-	            "memory":"\uf538",
-	            "mendeley":"\uf7b3",
-	            "menorah":"\uf676",
-	            "mercury":"\uf223",
-	            "meteor":"\uf753",
-	            "microchip":"\uf2db",
-	            "microphone":"\uf130",
-	            "microphone-alt":"\uf3c9",
-	            "microphone-alt-slash":"\uf539",
-	            "microphone-slash":"\uf131",
-	            "microscope":"\uf610",
-	            "microsoft":"\uf3ca",
-	            "minus":"\uf068",
-	            "minus-circle":"\uf056",
-	            "minus-square":"\uf146",
-	            "mitten":"\uf7b5",
-	            "mix":"\uf3cb",
-	            "mixcloud":"\uf289",
-	            "mizuni":"\uf3cc",
-	            "mobile":"\uf10b",
-	            "mobile-alt":"\uf3cd",
-	            "modx":"\uf285",
-	            "monero":"\uf3d0",
-	            "money-bill":"\uf0d6",
-	            "money-bill-alt":"\uf3d1",
-	            "money-bill-wave":"\uf53a",
-	            "money-bill-wave-alt":"\uf53b",
-	            "money-check":"\uf53c",
-	            "money-check-alt":"\uf53d",
-	            "monument":"\uf5a6",
-	            "moon":"\uf186",
-	            "mortar-pestle":"\uf5a7",
-	            "mosque":"\uf678",
-	            "motorcycle":"\uf21c",
-	            "mountain":"\uf6fc",
-	            "mouse-pointer":"\uf245",
-	            "mug-hot":"\uf7b6",
-	            "music":"\uf001",
-	            "napster":"\uf3d2",
-	            "neos":"\uf612",
-	            "network-wired":"\uf6ff",
-	            "neuter":"\uf22c",
-	            "newspaper":"\uf1ea",
-	            "nimblr":"\uf5a8",
-	            "node":"\uf419",
-	            "node-js":"\uf3d3",
-	            "not-equal":"\uf53e",
-	            "notes-medical":"\uf481",
-	            "npm":"\uf3d4",
-	            "ns8":"\uf3d5",
-	            "nutritionix":"\uf3d6",
-	            "object-group":"\uf247",
-	            "object-ungroup":"\uf248",
-	            "odnoklassniki":"\uf263",
-	            "odnoklassniki-square":"\uf264",
-	            "oil-can":"\uf613",
-	            "old-republic":"\uf510",
-	            "om":"\uf679",
-	            "opencart":"\uf23d",
-	            "openid":"\uf19b",
-	            "opera":"\uf26a",
-	            "optin-monster":"\uf23c",
-	            "osi":"\uf41a",
-	            "otter":"\uf700",
-	            "outdent":"\uf03b",
-	            "page4":"\uf3d7",
-	            "pagelines":"\uf18c",
-	            "pager":"\uf815",
-	            "paint-brush":"\uf1fc",
-	            "paint-roller":"\uf5aa",
-	            "palette":"\uf53f",
-	            "palfed":"\uf3d8",
-	            "pallet":"\uf482",
-	            "paper-plane":"\uf1d8",
-	            "paperclip":"\uf0c6",
-	            "parachute-box":"\uf4cd",
-	            "paragraph":"\uf1dd",
-	            "parking":"\uf540",
-	            "passport":"\uf5ab",
-	            "pastafarianism":"\uf67b",
-	            "paste":"\uf0ea",
-	            "patreon":"\uf3d9",
-	            "pause":"\uf04c",
-	            "pause-circle":"\uf28b",
-	            "paw":"\uf1b0",
-	            "paypal":"\uf1ed",
-	            "peace":"\uf67c",
-	            "pen":"\uf304",
-	            "pen-alt":"\uf305",
-	            "pen-fancy":"\uf5ac",
-	            "pen-nib":"\uf5ad",
-	            "pen-square":"\uf14b",
-	            "pencil-alt":"\uf303",
-	            "pencil-ruler":"\uf5ae",
-	            "penny-arcade":"\uf704",
-	            "people-carry":"\uf4ce",
-	            "pepper-hot":"\uf816",
-	            "percent":"\uf295",
-	            "percentage":"\uf541",
-	            "periscope":"\uf3da",
-	            "person-booth":"\uf756",
-	            "phabricator":"\uf3db",
-	            "phoenix-framework":"\uf3dc",
-	            "phoenix-squadron":"\uf511",
-	            "phone":"\uf095",
-	            "phone-alt":"\uf879",
-	            "phone-slash":"\uf3dd",
-	            "phone-square":"\uf098",
-	            "phone-square-alt":"\uf87b",
-	            "phone-volume":"\uf2a0",
-	            "photo-video":"\uf87c",
-	            "php":"\uf457",
-	            "pied-piper":"\uf2ae",
-	            "pied-piper-alt":"\uf1a8",
-	            "pied-piper-hat":"\uf4e5",
-	            "pied-piper-pp":"\uf1a7",
-	            "piggy-bank":"\uf4d3",
-	            "pills":"\uf484",
-	            "pinterest":"\uf0d2",
-	            "pinterest-p":"\uf231",
-	            "pinterest-square":"\uf0d3",
-	            "pizza-slice":"\uf818",
-	            "place-of-worship":"\uf67f",
-	            "plane":"\uf072",
-	            "plane-arrival":"\uf5af",
-	            "plane-departure":"\uf5b0",
-	            "play":"\uf04b",
-	            "play-circle":"\uf144",
-	            "playstation":"\uf3df",
-	            "plug":"\uf1e6",
-	            "plus":"\uf067",
-	            "plus-circle":"\uf055",
-	            "plus-square":"\uf0fe",
-	            "podcast":"\uf2ce",
-	            "poll":"\uf681",
-	            "poll-h":"\uf682",
-	            "poo":"\uf2fe",
-	            "poo-storm":"\uf75a",
-	            "poop":"\uf619",
-	            "portrait":"\uf3e0",
-	            "pound-sign":"\uf154",
-	            "power-off":"\uf011",
-	            "pray":"\uf683",
-	            "praying-hands":"\uf684",
-	            "prescription":"\uf5b1",
-	            "prescription-bottle":"\uf485",
-	            "prescription-bottle-alt":"\uf486",
-	            "print":"\uf02f",
-	            "procedures":"\uf487",
-	            "product-hunt":"\uf288",
-	            "project-diagram":"\uf542",
-	            "pushed":"\uf3e1",
-	            "puzzle-piece":"\uf12e",
-	            "python":"\uf3e2",
-	            "qq":"\uf1d6",
-	            "qrcode":"\uf029",
-	            "question":"\uf128",
-	            "question-circle":"\uf059",
-	            "quidditch":"\uf458",
-	            "quinscape":"\uf459",
-	            "quora":"\uf2c4",
-	            "quote-left":"\uf10d",
-	            "quote-right":"\uf10e",
-	            "quran":"\uf687",
-	            "r-project":"\uf4f7",
-	            "radiation":"\uf7b9",
-	            "radiation-alt":"\uf7ba",
-	            "rainbow":"\uf75b",
-	            "random":"\uf074",
-	            "raspberry-pi":"\uf7bb",
-	            "ravelry":"\uf2d9",
-	            "react":"\uf41b",
-	            "reacteurope":"\uf75d",
-	            "readme":"\uf4d5",
-	            "rebel":"\uf1d0",
-	            "receipt":"\uf543",
-	            "recycle":"\uf1b8",
-	            "red-river":"\uf3e3",
-	            "reddit":"\uf1a1",
-	            "reddit-alien":"\uf281",
-	            "reddit-square":"\uf1a2",
-	            "redhat":"\uf7bc",
-	            "redo":"\uf01e",
-	            "redo-alt":"\uf2f9",
-	            "registered":"\uf25d",
-	            "remove-format":"\uf87d",
-	            "renren":"\uf18b",
-	            "reply":"\uf3e5",
-	            "reply-all":"\uf122",
-	            "replyd":"\uf3e6",
-	            "republican":"\uf75e",
-	            "researchgate":"\uf4f8",
-	            "resolving":"\uf3e7",
-	            "restroom":"\uf7bd",
-	            "retweet":"\uf079",
-	            "rev":"\uf5b2",
-	            "ribbon":"\uf4d6",
-	            "ring":"\uf70b",
-	            "road":"\uf018",
-	            "robot":"\uf544",
-	            "rocket":"\uf135",
-	            "rocketchat":"\uf3e8",
-	            "rockrms":"\uf3e9",
-	            "route":"\uf4d7",
-	            "rss":"\uf09e",
-	            "rss-square":"\uf143",
-	            "ruble-sign":"\uf158",
-	            "ruler":"\uf545",
-	            "ruler-combined":"\uf546",
-	            "ruler-horizontal":"\uf547",
-	            "ruler-vertical":"\uf548",
-	            "running":"\uf70c",
-	            "rupee-sign":"\uf156",
-	            "sad-cry":"\uf5b3",
-	            "sad-tear":"\uf5b4",
-	            "safari":"\uf267",
-	            "salesforce":"\uf83b",
-	            "sass":"\uf41e",
-	            "satellite":"\uf7bf",
-	            "satellite-dish":"\uf7c0",
-	            "save":"\uf0c7",
-	            "schlix":"\uf3ea",
-	            "school":"\uf549",
-	            "screwdriver":"\uf54a",
-	            "scribd":"\uf28a",
-	            "scroll":"\uf70e",
-	            "sd-card":"\uf7c2",
-	            "search":"\uf002",
-	            "search-dollar":"\uf688",
-	            "search-location":"\uf689",
-	            "search-minus":"\uf010",
-	            "search-plus":"\uf00e",
-	            "searchengin":"\uf3eb",
-	            "seedling":"\uf4d8",
-	            "sellcast":"\uf2da",
-	            "sellsy":"\uf213",
-	            "server":"\uf233",
-	            "servicestack":"\uf3ec",
-	            "shapes":"\uf61f",
-	            "share":"\uf064",
-	            "share-alt":"\uf1e0",
-	            "share-alt-square":"\uf1e1",
-	            "share-square":"\uf14d",
-	            "shekel-sign":"\uf20b",
-	            "shield-alt":"\uf3ed",
-	            "ship":"\uf21a",
-	            "shipping-fast":"\uf48b",
-	            "shirtsinbulk":"\uf214",
-	            "shoe-prints":"\uf54b",
-	            "shopping-bag":"\uf290",
-	            "shopping-basket":"\uf291",
-	            "shopping-cart":"\uf07a",
-	            "shopware":"\uf5b5",
-	            "shower":"\uf2cc",
-	            "shuttle-van":"\uf5b6",
-	            "sign":"\uf4d9",
-	            "sign-in-alt":"\uf2f6",
-	            "sign-language":"\uf2a7",
-	            "sign-out-alt":"\uf2f5",
-	            "signal":"\uf012",
-	            "signature":"\uf5b7",
-	            "sim-card":"\uf7c4",
-	            "simplybuilt":"\uf215",
-	            "sistrix":"\uf3ee",
-	            "sitemap":"\uf0e8",
-	            "sith":"\uf512",
-	            "skating":"\uf7c5",
-	            "sketch":"\uf7c6",
-	            "skiing":"\uf7c9",
-	            "skiing-nordic":"\uf7ca",
-	            "skull":"\uf54c",
-	            "skull-crossbones":"\uf714",
-	            "skyatlas":"\uf216",
-	            "skype":"\uf17e",
-	            "slack":"\uf198",
-	            "slack-hash":"\uf3ef",
-	            "slash":"\uf715",
-	            "sleigh":"\uf7cc",
-	            "sliders-h":"\uf1de",
-	            "slideshare":"\uf1e7",
-	            "smile":"\uf118",
-	            "smile-beam":"\uf5b8",
-	            "smile-wink":"\uf4da",
-	            "smog":"\uf75f",
-	            "smoking":"\uf48d",
-	            "smoking-ban":"\uf54d",
-	            "sms":"\uf7cd",
-	            "snapchat":"\uf2ab",
-	            "snapchat-ghost":"\uf2ac",
-	            "snapchat-square":"\uf2ad",
-	            "snowboarding":"\uf7ce",
-	            "snowflake":"\uf2dc",
-	            "snowman":"\uf7d0",
-	            "snowplow":"\uf7d2",
-	            "socks":"\uf696",
-	            "solar-panel":"\uf5ba",
-	            "sort":"\uf0dc",
-	            "sort-alpha-down":"\uf15d",
-	            "sort-alpha-down-alt":"\uf881",
-	            "sort-alpha-up":"\uf15e",
-	            "sort-alpha-up-alt":"\uf882",
-	            "sort-amount-down":"\uf160",
-	            "sort-amount-down-alt":"\uf884",
-	            "sort-amount-up":"\uf161",
-	            "sort-amount-up-alt":"\uf885",
-	            "sort-down":"\uf0dd",
-	            "sort-numeric-down":"\uf162",
-	            "sort-numeric-down-alt":"\uf886",
-	            "sort-numeric-up":"\uf163",
-	            "sort-numeric-up-alt":"\uf887",
-	            "sort-up":"\uf0de",
-	            "soundcloud":"\uf1be",
-	            "sourcetree":"\uf7d3",
-	            "spa":"\uf5bb",
-	            "space-shuttle":"\uf197",
-	            "speakap":"\uf3f3",
-	            "speaker-deck":"\uf83c",
-	            "spell-check":"\uf891",
-	            "spider":"\uf717",
-	            "spinner":"\uf110",
-	            "splotch":"\uf5bc",
-	            "spotify":"\uf1bc",
-	            "spray-can":"\uf5bd",
-	            "square":"\uf0c8",
-	            "square-full":"\uf45c",
-	            "square-root-alt":"\uf698",
-	            "squarespace":"\uf5be",
-	            "stack-exchange":"\uf18d",
-	            "stack-overflow":"\uf16c",
-	            "stackpath":"\uf842",
-	            "stamp":"\uf5bf",
-	            "star":"\uf005",
-	            "star-and-crescent":"\uf699",
-	            "star-half":"\uf089",
-	            "star-half-alt":"\uf5c0",
-	            "star-of-david":"\uf69a",
-	            "star-of-life":"\uf621",
-	            "staylinked":"\uf3f5",
-	            "steam":"\uf1b6",
-	            "steam-square":"\uf1b7",
-	            "steam-symbol":"\uf3f6",
-	            "step-backward":"\uf048",
-	            "step-forward":"\uf051",
-	            "stethoscope":"\uf0f1",
-	            "sticker-mule":"\uf3f7",
-	            "sticky-note":"\uf249",
-	            "stop":"\uf04d",
-	            "stop-circle":"\uf28d",
-	            "stopwatch":"\uf2f2",
-	            "store":"\uf54e",
-	            "store-alt":"\uf54f",
-	            "strava":"\uf428",
-	            "stream":"\uf550",
-	            "street-view":"\uf21d",
-	            "strikethrough":"\uf0cc",
-	            "stripe":"\uf429",
-	            "stripe-s":"\uf42a",
-	            "stroopwafel":"\uf551",
-	            "studiovinari":"\uf3f8",
-	            "stumbleupon":"\uf1a4",
-	            "stumbleupon-circle":"\uf1a3",
-	            "subscript":"\uf12c",
-	            "subway":"\uf239",
-	            "suitcase":"\uf0f2",
-	            "suitcase-rolling":"\uf5c1",
-	            "sun":"\uf185",
-	            "superpowers":"\uf2dd",
-	            "superscript":"\uf12b",
-	            "supple":"\uf3f9",
-	            "surprise":"\uf5c2",
-	            "suse":"\uf7d6",
-	            "swatchbook":"\uf5c3",
-	            "swimmer":"\uf5c4",
-	            "swimming-pool":"\uf5c5",
-	            "symfony":"\uf83d",
-	            "synagogue":"\uf69b",
-	            "sync":"\uf021",
-	            "sync-alt":"\uf2f1",
-	            "syringe":"\uf48e",
-	            "table":"\uf0ce",
-	            "table-tennis":"\uf45d",
-	            "tablet":"\uf10a",
-	            "tablet-alt":"\uf3fa",
-	            "tablets":"\uf490",
-	            "tachometer-alt":"\uf3fd",
-	            "tag":"\uf02b",
-	            "tags":"\uf02c",
-	            "tape":"\uf4db",
-	            "tasks":"\uf0ae",
-	            "taxi":"\uf1ba",
-	            "teamspeak":"\uf4f9",
-	            "teeth":"\uf62e",
-	            "teeth-open":"\uf62f",
-	            "telegram":"\uf2c6",
-	            "telegram-plane":"\uf3fe",
-	            "temperature-high":"\uf769",
-	            "temperature-low":"\uf76b",
-	            "tencent-weibo":"\uf1d5",
-	            "tenge":"\uf7d7",
-	            "terminal":"\uf120",
-	            "text-height":"\uf034",
-	            "text-width":"\uf035",
-	            "th":"\uf00a",
-	            "th-large":"\uf009",
-	            "th-list":"\uf00b",
-	            "the-red-yeti":"\uf69d",
-	            "theater-masks":"\uf630",
-	            "themeco":"\uf5c6",
-	            "themeisle":"\uf2b2",
-	            "thermometer":"\uf491",
-	            "thermometer-empty":"\uf2cb",
-	            "thermometer-full":"\uf2c7",
-	            "thermometer-half":"\uf2c9",
-	            "thermometer-quarter":"\uf2ca",
-	            "thermometer-three-quarters":"\uf2c8",
-	            "think-peaks":"\uf731",
-	            "thumbs-down":"\uf165",
-	            "thumbs-up":"\uf164",
-	            "thumbtack":"\uf08d",
-	            "ticket-alt":"\uf3ff",
-	            "times":"\uf00d",
-	            "times-circle":"\uf057",
-	            "tint":"\uf043",
-	            "tint-slash":"\uf5c7",
-	            "tired":"\uf5c8",
-	            "toggle-off":"\uf204",
-	            "toggle-on":"\uf205",
-	            "toilet":"\uf7d8",
-	            "toilet-paper":"\uf71e",
-	            "toolbox":"\uf552",
-	            "tools":"\uf7d9",
-	            "tooth":"\uf5c9",
-	            "torah":"\uf6a0",
-	            "torii-gate":"\uf6a1",
-	            "tractor":"\uf722",
-	            "trade-federation":"\uf513",
-	            "trademark":"\uf25c",
-	            "traffic-light":"\uf637",
-	            "train":"\uf238",
-	            "tram":"\uf7da",
-	            "transgender":"\uf224",
-	            "transgender-alt":"\uf225",
-	            "trash":"\uf1f8",
-	            "trash-alt":"\uf2ed",
-	            "trash-restore":"\uf829",
-	            "trash-restore-alt":"\uf82a",
-	            "tree":"\uf1bb",
-	            "trello":"\uf181",
-	            "tripadvisor":"\uf262",
-	            "trophy":"\uf091",
-	            "truck":"\uf0d1",
-	            "truck-loading":"\uf4de",
-	            "truck-monster":"\uf63b",
-	            "truck-moving":"\uf4df",
-	            "truck-pickup":"\uf63c",
-	            "tshirt":"\uf553",
-	            "tty":"\uf1e4",
-	            "tumblr":"\uf173",
-	            "tumblr-square":"\uf174",
-	            "tv":"\uf26c",
-	            "twitch":"\uf1e8",
-	            "twitter":"\uf099",
-	            "twitter-square":"\uf081",
-	            "typo3":"\uf42b",
-	            "uber":"\uf402",
-	            "ubuntu":"\uf7df",
-	            "uikit":"\uf403",
-	            "umbrella":"\uf0e9",
-	            "umbrella-beach":"\uf5ca",
-	            "underline":"\uf0cd",
-	            "undo":"\uf0e2",
-	            "undo-alt":"\uf2ea",
-	            "uniregistry":"\uf404",
-	            "universal-access":"\uf29a",
-	            "university":"\uf19c",
-	            "unlink":"\uf127",
-	            "unlock":"\uf09c",
-	            "unlock-alt":"\uf13e",
-	            "untappd":"\uf405",
-	            "upload":"\uf093",
-	            "ups":"\uf7e0",
-	            "usb":"\uf287",
-	            "user":"\uf007",
-	            "user-alt":"\uf406",
-	            "user-alt-slash":"\uf4fa",
-	            "user-astronaut":"\uf4fb",
-	            "user-check":"\uf4fc",
-	            "user-circle":"\uf2bd",
-	            "user-clock":"\uf4fd",
-	            "user-cog":"\uf4fe",
-	            "user-edit":"\uf4ff",
-	            "user-friends":"\uf500",
-	            "user-graduate":"\uf501",
-	            "user-injured":"\uf728",
-	            "user-lock":"\uf502",
-	            "user-md":"\uf0f0",
-	            "user-minus":"\uf503",
-	            "user-ninja":"\uf504",
-	            "user-nurse":"\uf82f",
-	            "user-plus":"\uf234",
-	            "user-secret":"\uf21b",
-	            "user-shield":"\uf505",
-	            "user-slash":"\uf506",
-	            "user-tag":"\uf507",
-	            "user-tie":"\uf508",
-	            "user-times":"\uf235",
-	            "users":"\uf0c0",
-	            "users-cog":"\uf509",
-	            "usps":"\uf7e1",
-	            "ussunnah":"\uf407",
-	            "utensil-spoon":"\uf2e5",
-	            "utensils":"\uf2e7",
-	            "vaadin":"\uf408",
-	            "vector-square":"\uf5cb",
-	            "venus":"\uf221",
-	            "venus-double":"\uf226",
-	            "venus-mars":"\uf228",
-	            "viacoin":"\uf237",
-	            "viadeo":"\uf2a9",
-	            "viadeo-square":"\uf2aa",
-	            "vial":"\uf492",
-	            "vials":"\uf493",
-	            "viber":"\uf409",
-	            "video":"\uf03d",
-	            "video-slash":"\uf4e2",
-	            "vihara":"\uf6a7",
-	            "vimeo":"\uf40a",
-	            "vimeo-square":"\uf194",
-	            "vimeo-v":"\uf27d",
-	            "vine":"\uf1ca",
-	            "vk":"\uf189",
-	            "vnv":"\uf40b",
-	            "voicemail":"\uf897",
-	            "volleyball-ball":"\uf45f",
-	            "volume-down":"\uf027",
-	            "volume-mute":"\uf6a9",
-	            "volume-off":"\uf026",
-	            "volume-up":"\uf028",
-	            "vote-yea":"\uf772",
-	            "vr-cardboard":"\uf729",
-	            "vuejs":"\uf41f",
-	            "walking":"\uf554",
-	            "wallet":"\uf555",
-	            "warehouse":"\uf494",
-	            "water":"\uf773",
-	            "wave-square":"\uf83e",
-	            "waze":"\uf83f",
-	            "weebly":"\uf5cc",
-	            "weibo":"\uf18a",
-	            "weight":"\uf496",
-	            "weight-hanging":"\uf5cd",
-	            "weixin":"\uf1d7",
-	            "whatsapp":"\uf232",
-	            "whatsapp-square":"\uf40c",
-	            "wheelchair":"\uf193",
-	            "whmcs":"\uf40d",
-	            "wifi":"\uf1eb",
-	            "wikipedia-w":"\uf266",
-	            "wind":"\uf72e",
-	            "window-close":"\uf410",
-	            "window-maximize":"\uf2d0",
-	            "window-minimize":"\uf2d1",
-	            "window-restore":"\uf2d2",
-	            "windows":"\uf17a",
-	            "wine-bottle":"\uf72f",
-	            "wine-glass":"\uf4e3",
-	            "wine-glass-alt":"\uf5ce",
-	            "wix":"\uf5cf",
-	            "wizards-of-the-coast":"\uf730",
-	            "wolf-pack-battalion":"\uf514",
-	            "won-sign":"\uf159",
-	            "wordpress":"\uf19a",
-	            "wordpress-simple":"\uf411",
-	            "wpbeginner":"\uf297",
-	            "wpexplorer":"\uf2de",
-	            "wpforms":"\uf298",
-	            "wpressr":"\uf3e4",
-	            "wrench":"\uf0ad",
-	            "x-ray":"\uf497",
-	            "xbox":"\uf412",
-	            "xing":"\uf168",
-	            "xing-square":"\uf169",
-	            "y-combinator":"\uf23b",
-	            "yahoo":"\uf19e",
-	            "yammer":"\uf840",
-	            "yandex":"\uf413",
-	            "yandex-international":"\uf414",
-	            "yarn":"\uf7e3",
-	            "yelp":"\uf1e9",
-	            "yen-sign":"\uf157",
-	            "yin-yang":"\uf6ad",
-	            "yoast":"\uf2b1",
-	            "youtube":"\uf167",
-	            "youtube-square":"\uf431",
-	            "zhihu":"\uf63f",
+
+	// ##########################################################################################################################################################
+	//            _____ _              ____      _            
+	//           |_   _(_)_ __  _   _ / ___|___ | | ___  _ __ 
+	//             | | | | '_ \| | | | |   / _ \| |/ _ \| '__|
+	//             | | | | | | | |_| | |__| (_) | | (_) | |   
+	//             |_| |_|_| |_|\__, |\____\___/|_|\___/|_|   
+	//                          |___/                         
+	// ##########################################################################################################################################################
+	    // TinyColor v1.4.1
+	    // https://github.com/bgrins/TinyColor
+	    // Brian Grinstead, MIT License
+
+	    var tinycolor = (function(Math) {
+
+	    var trimLeft = /^\s+/,
+	        trimRight = /\s+$/,
+	        tinyCounter = 0,
+	        mathRound = Math.round,
+	        mathMin = Math.min,
+	        mathMax = Math.max,
+	        mathRandom = Math.random;
+
+	    function tinycolor (color, opts) {
+
+	        color = (color) ? color : '';
+	        opts = opts || { };
+
+	        // If input is already a tinycolor, return itself
+	        if (color instanceof tinycolor) {
+	        return color;
+	        }
+	        // If we are called as a function, call using new instead
+	        if (!(this instanceof tinycolor)) {
+	            return new tinycolor(color, opts);
+	        }
+
+	        var rgb = inputToRGB(color);
+	        this._originalInput = color,
+	        this._r = rgb.r,
+	        this._g = rgb.g,
+	        this._b = rgb.b,
+	        this._a = rgb.a,
+	        this._roundA = mathRound(100*this._a) / 100,
+	        this._format = opts.format || rgb.format;
+	        this._gradientType = opts.gradientType;
+
+	        // Don't let the range of [0,255] come back in [0,1].
+	        // Potentially lose a little bit of precision here, but will fix issues where
+	        // .5 gets interpreted as half of the total, instead of half of 1
+	        // If it was supposed to be 128, this was already taken care of by `inputToRgb`
+	        if (this._r < 1) { this._r = mathRound(this._r); }
+	        if (this._g < 1) { this._g = mathRound(this._g); }
+	        if (this._b < 1) { this._b = mathRound(this._b); }
+
+	        this._ok = rgb.ok;
+	        this._tc_id = tinyCounter++;
+	    }
+
+	    tinycolor.prototype = {
+	        isDark: function() {
+	            return this.getBrightness() < 128;
+	        },
+	        isLight: function() {
+	            return !this.isDark();
+	        },
+	        isValid: function() {
+	            return this._ok;
+	        },
+	        getOriginalInput: function() {
+	        return this._originalInput;
+	        },
+	        getFormat: function() {
+	            return this._format;
+	        },
+	        getAlpha: function() {
+	            return this._a;
+	        },
+	        getBrightness: function() {
+	            //http://www.w3.org/TR/AERT#color-contrast
+	            var rgb = this.toRgb();
+	            return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+	        },
+	        getLuminance: function() {
+	            //http://www.w3.org/TR/2008/REC-WCAG20-20081211/#relativeluminancedef
+	            var rgb = this.toRgb();
+	            var RsRGB, GsRGB, BsRGB, R, G, B;
+	            RsRGB = rgb.r/255;
+	            GsRGB = rgb.g/255;
+	            BsRGB = rgb.b/255;
+
+	            if (RsRGB <= 0.03928) {R = RsRGB / 12.92;} else {R = Math.pow(((RsRGB + 0.055) / 1.055), 2.4);}
+	            if (GsRGB <= 0.03928) {G = GsRGB / 12.92;} else {G = Math.pow(((GsRGB + 0.055) / 1.055), 2.4);}
+	            if (BsRGB <= 0.03928) {B = BsRGB / 12.92;} else {B = Math.pow(((BsRGB + 0.055) / 1.055), 2.4);}
+	            return (0.2126 * R) + (0.7152 * G) + (0.0722 * B);
+	        },
+	        setAlpha: function(value) {
+	            this._a = boundAlpha(value);
+	            this._roundA = mathRound(100*this._a) / 100;
+	            return this;
+	        },
+	        toHsv: function() {
+	            var hsv = rgbToHsv(this._r, this._g, this._b);
+	            return { h: hsv.h * 360, s: hsv.s, v: hsv.v, a: this._a };
+	        },
+	        toHsvString: function() {
+	            var hsv = rgbToHsv(this._r, this._g, this._b);
+	            var h = mathRound(hsv.h * 360), s = mathRound(hsv.s * 100), v = mathRound(hsv.v * 100);
+	            return (this._a == 1) ?
+	            "hsv("  + h + ", " + s + "%, " + v + "%)" :
+	            "hsva(" + h + ", " + s + "%, " + v + "%, "+ this._roundA + ")";
+	        },
+	        toHsl: function() {
+	            var hsl = rgbToHsl(this._r, this._g, this._b);
+	            return { h: hsl.h * 360, s: hsl.s, l: hsl.l, a: this._a };
+	        },
+	        toHslString: function() {
+	            var hsl = rgbToHsl(this._r, this._g, this._b);
+	            var h = mathRound(hsl.h * 360), s = mathRound(hsl.s * 100), l = mathRound(hsl.l * 100);
+	            return (this._a == 1) ?
+	            "hsl("  + h + ", " + s + "%, " + l + "%)" :
+	            "hsla(" + h + ", " + s + "%, " + l + "%, "+ this._roundA + ")";
+	        },
+	        toHex: function(allow3Char) {
+	            return rgbToHex(this._r, this._g, this._b, allow3Char);
+	        },
+	        toHexString: function(allow3Char) {
+	            return '#' + this.toHex(allow3Char);
+	        },
+	        toHex8: function(allow4Char) {
+	            return rgbaToHex(this._r, this._g, this._b, this._a, allow4Char);
+	        },
+	        toHex8String: function(allow4Char) {
+	            return '#' + this.toHex8(allow4Char);
+	        },
+	        toRgb: function() {
+	            return { r: mathRound(this._r), g: mathRound(this._g), b: mathRound(this._b), a: this._a };
+	        },
+	        toRgbString: function() {
+	            return (this._a == 1) ?
+	            "rgb("  + mathRound(this._r) + ", " + mathRound(this._g) + ", " + mathRound(this._b) + ")" :
+	            "rgba(" + mathRound(this._r) + ", " + mathRound(this._g) + ", " + mathRound(this._b) + ", " + this._roundA + ")";
+	        },
+	        toPercentageRgb: function() {
+	            return { r: mathRound(bound01(this._r, 255) * 100) + "%", g: mathRound(bound01(this._g, 255) * 100) + "%", b: mathRound(bound01(this._b, 255) * 100) + "%", a: this._a };
+	        },
+	        toPercentageRgbString: function() {
+	            return (this._a == 1) ?
+	            "rgb("  + mathRound(bound01(this._r, 255) * 100) + "%, " + mathRound(bound01(this._g, 255) * 100) + "%, " + mathRound(bound01(this._b, 255) * 100) + "%)" :
+	            "rgba(" + mathRound(bound01(this._r, 255) * 100) + "%, " + mathRound(bound01(this._g, 255) * 100) + "%, " + mathRound(bound01(this._b, 255) * 100) + "%, " + this._roundA + ")";
+	        },
+	        toName: function() {
+	            if (this._a === 0) {
+	                return "transparent";
+	            }
+
+	            if (this._a < 1) {
+	                return false;
+	            }
+
+	            return hexNames[rgbToHex(this._r, this._g, this._b, true)] || false;
+	        },
+	        toFilter: function(secondColor) {
+	            var hex8String = '#' + rgbaToArgbHex(this._r, this._g, this._b, this._a);
+	            var secondHex8String = hex8String;
+	            var gradientType = this._gradientType ? "GradientType = 1, " : "";
+
+	            if (secondColor) {
+	                var s = tinycolor(secondColor);
+	                secondHex8String = '#' + rgbaToArgbHex(s._r, s._g, s._b, s._a);
+	            }
+
+	            return "progid:DXImageTransform.Microsoft.gradient("+gradientType+"startColorstr="+hex8String+",endColorstr="+secondHex8String+")";
+	        },
+	        toString: function(format) {
+	            var formatSet = !!format;
+	            format = format || this._format;
+
+	            var formattedString = false;
+	            var hasAlpha = this._a < 1 && this._a >= 0;
+	            var needsAlphaFormat = !formatSet && hasAlpha && (format === "hex" || format === "hex6" || format === "hex3" || format === "hex4" || format === "hex8" || format === "name");
+
+	            if (needsAlphaFormat) {
+	                // Special case for "transparent", all other non-alpha formats
+	                // will return rgba when there is transparency.
+	                if (format === "name" && this._a === 0) {
+	                    return this.toName();
+	                }
+	                return this.toRgbString();
+	            }
+	            if (format === "rgb") {
+	                formattedString = this.toRgbString();
+	            }
+	            if (format === "prgb") {
+	                formattedString = this.toPercentageRgbString();
+	            }
+	            if (format === "hex" || format === "hex6") {
+	                formattedString = this.toHexString();
+	            }
+	            if (format === "hex3") {
+	                formattedString = this.toHexString(true);
+	            }
+	            if (format === "hex4") {
+	                formattedString = this.toHex8String(true);
+	            }
+	            if (format === "hex8") {
+	                formattedString = this.toHex8String();
+	            }
+	            if (format === "name") {
+	                formattedString = this.toName();
+	            }
+	            if (format === "hsl") {
+	                formattedString = this.toHslString();
+	            }
+	            if (format === "hsv") {
+	                formattedString = this.toHsvString();
+	            }
+
+	            return formattedString || this.toHexString();
+	        },
+	        clone: function() {
+	            return tinycolor(this.toString());
+	        },
+
+	        _applyModification: function(fn, args) {
+	            var color = fn.apply(null, [this].concat([].slice.call(args)));
+	            this._r = color._r;
+	            this._g = color._g;
+	            this._b = color._b;
+	            this.setAlpha(color._a);
+	            return this;
+	        },
+	        lighten: function() {
+	            return this._applyModification(lighten, arguments);
+	        },
+	        brighten: function() {
+	            return this._applyModification(brighten, arguments);
+	        },
+	        darken: function() {
+	            return this._applyModification(darken, arguments);
+	        },
+	        desaturate: function() {
+	            return this._applyModification(desaturate, arguments);
+	        },
+	        saturate: function() {
+	            return this._applyModification(saturate, arguments);
+	        },
+	        greyscale: function() {
+	            return this._applyModification(greyscale, arguments);
+	        },
+	        spin: function() {
+	            return this._applyModification(spin, arguments);
+	        },
+
+	        _applyCombination: function(fn, args) {
+	            return fn.apply(null, [this].concat([].slice.call(args)));
+	        },
+	        analogous: function() {
+	            return this._applyCombination(analogous, arguments);
+	        },
+	        complement: function() {
+	            return this._applyCombination(complement, arguments);
+	        },
+	        monochromatic: function() {
+	            return this._applyCombination(monochromatic, arguments);
+	        },
+	        splitcomplement: function() {
+	            return this._applyCombination(splitcomplement, arguments);
+	        },
+	        triad: function() {
+	            return this._applyCombination(triad, arguments);
+	        },
+	        tetrad: function() {
+	            return this._applyCombination(tetrad, arguments);
 	        }
 	    };
+
+	    // If input is an object, force 1 into "1.0" to handle ratios properly
+	    // String input requires "1.0" as input, so 1 will be treated as 1
+	    tinycolor.fromRatio = function(color, opts) {
+	        if (typeof color == "object") {
+	            var newColor = {};
+	            for (var i in color) {
+	                if (color.hasOwnProperty(i)) {
+	                    if (i === "a") {
+	                        newColor[i] = color[i];
+	                    }
+	                    else {
+	                        newColor[i] = convertToPercentage(color[i]);
+	                    }
+	                }
+	            }
+	            color = newColor;
+	        }
+
+	        return tinycolor(color, opts);
+	    };
+
+	    // Given a string or object, convert that input to RGB
+	    // Possible string inputs:
+	    //
+	    //     "red"
+	    //     "#f00" or "f00"
+	    //     "#ff0000" or "ff0000"
+	    //     "#ff000000" or "ff000000"
+	    //     "rgb 255 0 0" or "rgb (255, 0, 0)"
+	    //     "rgb 1.0 0 0" or "rgb (1, 0, 0)"
+	    //     "rgba (255, 0, 0, 1)" or "rgba 255, 0, 0, 1"
+	    //     "rgba (1.0, 0, 0, 1)" or "rgba 1.0, 0, 0, 1"
+	    //     "hsl(0, 100%, 50%)" or "hsl 0 100% 50%"
+	    //     "hsla(0, 100%, 50%, 1)" or "hsla 0 100% 50%, 1"
+	    //     "hsv(0, 100%, 100%)" or "hsv 0 100% 100%"
+	    //
+	    function inputToRGB(color) {
+
+	        var rgb = { r: 0, g: 0, b: 0 };
+	        var a = 1;
+	        var s = null;
+	        var v = null;
+	        var l = null;
+	        var ok = false;
+	        var format = false;
+
+	        if (typeof color == "string") {
+	            color = stringInputToObject(color);
+	        }
+
+	        if (typeof color == "object") {
+	            if (isValidCSSUnit(color.r) && isValidCSSUnit(color.g) && isValidCSSUnit(color.b)) {
+	                rgb = rgbToRgb(color.r, color.g, color.b);
+	                ok = true;
+	                format = String(color.r).substr(-1) === "%" ? "prgb" : "rgb";
+	            }
+	            else if (isValidCSSUnit(color.h) && isValidCSSUnit(color.s) && isValidCSSUnit(color.v)) {
+	                s = convertToPercentage(color.s);
+	                v = convertToPercentage(color.v);
+	                rgb = hsvToRgb(color.h, s, v);
+	                ok = true;
+	                format = "hsv";
+	            }
+	            else if (isValidCSSUnit(color.h) && isValidCSSUnit(color.s) && isValidCSSUnit(color.l)) {
+	                s = convertToPercentage(color.s);
+	                l = convertToPercentage(color.l);
+	                rgb = hslToRgb(color.h, s, l);
+	                ok = true;
+	                format = "hsl";
+	            }
+
+	            if (color.hasOwnProperty("a")) {
+	                a = color.a;
+	            }
+	        }
+
+	        a = boundAlpha(a);
+
+	        return {
+	            ok: ok,
+	            format: color.format || format,
+	            r: mathMin(255, mathMax(rgb.r, 0)),
+	            g: mathMin(255, mathMax(rgb.g, 0)),
+	            b: mathMin(255, mathMax(rgb.b, 0)),
+	            a: a
+	        };
+	    }
+
+
+	    // Conversion Functions
+	    // --------------------
+
+	    // `rgbToHsl`, `rgbToHsv`, `hslToRgb`, `hsvToRgb` modified from:
+	    // <http://mjijackson.com/2008/02/rgb-to-hsl-and-rgb-to-hsv-color-model-conversion-algorithms-in-javascript>
+
+	    // `rgbToRgb`
+	    // Handle bounds / percentage checking to conform to CSS color spec
+	    // <http://www.w3.org/TR/css3-color/>
+	    // *Assumes:* r, g, b in [0, 255] or [0, 1]
+	    // *Returns:* { r, g, b } in [0, 255]
+	    function rgbToRgb(r, g, b){
+	        return {
+	            r: bound01(r, 255) * 255,
+	            g: bound01(g, 255) * 255,
+	            b: bound01(b, 255) * 255
+	        };
+	    }
+
+	    // `rgbToHsl`
+	    // Converts an RGB color value to HSL.
+	    // *Assumes:* r, g, and b are contained in [0, 255] or [0, 1]
+	    // *Returns:* { h, s, l } in [0,1]
+	    function rgbToHsl(r, g, b) {
+
+	        r = bound01(r, 255);
+	        g = bound01(g, 255);
+	        b = bound01(b, 255);
+
+	        var max = mathMax(r, g, b), min = mathMin(r, g, b);
+	        var h, s, l = (max + min) / 2;
+
+	        if(max == min) {
+	            h = s = 0; // achromatic
+	        }
+	        else {
+	            var d = max - min;
+	            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+	            switch(max) {
+	                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+	                case g: h = (b - r) / d + 2; break;
+	                case b: h = (r - g) / d + 4; break;
+	            }
+
+	            h /= 6;
+	        }
+
+	        return { h: h, s: s, l: l };
+	    }
+
+	    // `hslToRgb`
+	    // Converts an HSL color value to RGB.
+	    // *Assumes:* h is contained in [0, 1] or [0, 360] and s and l are contained [0, 1] or [0, 100]
+	    // *Returns:* { r, g, b } in the set [0, 255]
+	    function hslToRgb(h, s, l) {
+	        var r, g, b;
+
+	        h = bound01(h, 360);
+	        s = bound01(s, 100);
+	        l = bound01(l, 100);
+
+	        function hue2rgb(p, q, t) {
+	            if(t < 0) t += 1;
+	            if(t > 1) t -= 1;
+	            if(t < 1/6) return p + (q - p) * 6 * t;
+	            if(t < 1/2) return q;
+	            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+	            return p;
+	        }
+
+	        if(s === 0) {
+	            r = g = b = l; // achromatic
+	        }
+	        else {
+	            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+	            var p = 2 * l - q;
+	            r = hue2rgb(p, q, h + 1/3);
+	            g = hue2rgb(p, q, h);
+	            b = hue2rgb(p, q, h - 1/3);
+	        }
+
+	        return { r: r * 255, g: g * 255, b: b * 255 };
+	    }
+
+	    // `rgbToHsv`
+	    // Converts an RGB color value to HSV
+	    // *Assumes:* r, g, and b are contained in the set [0, 255] or [0, 1]
+	    // *Returns:* { h, s, v } in [0,1]
+	    function rgbToHsv(r, g, b) {
+
+	        r = bound01(r, 255);
+	        g = bound01(g, 255);
+	        b = bound01(b, 255);
+
+	        var max = mathMax(r, g, b), min = mathMin(r, g, b);
+	        var h, s, v = max;
+
+	        var d = max - min;
+	        s = max === 0 ? 0 : d / max;
+
+	        if(max == min) {
+	            h = 0; // achromatic
+	        }
+	        else {
+	            switch(max) {
+	                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+	                case g: h = (b - r) / d + 2; break;
+	                case b: h = (r - g) / d + 4; break;
+	            }
+	            h /= 6;
+	        }
+	        return { h: h, s: s, v: v };
+	    }
+
+	    // `hsvToRgb`
+	    // Converts an HSV color value to RGB.
+	    // *Assumes:* h is contained in [0, 1] or [0, 360] and s and v are contained in [0, 1] or [0, 100]
+	    // *Returns:* { r, g, b } in the set [0, 255]
+	    function hsvToRgb(h, s, v) {
+
+	        h = bound01(h, 360) * 6;
+	        s = bound01(s, 100);
+	        v = bound01(v, 100);
+
+	        var i = Math.floor(h),
+	            f = h - i,
+	            p = v * (1 - s),
+	            q = v * (1 - f * s),
+	            t = v * (1 - (1 - f) * s),
+	            mod = i % 6,
+	            r = [v, q, p, p, t, v][mod],
+	            g = [t, v, v, q, p, p][mod],
+	            b = [p, p, t, v, v, q][mod];
+
+	        return { r: r * 255, g: g * 255, b: b * 255 };
+	    }
+
+	    // `rgbToHex`
+	    // Converts an RGB color to hex
+	    // Assumes r, g, and b are contained in the set [0, 255]
+	    // Returns a 3 or 6 character hex
+	    function rgbToHex(r, g, b, allow3Char) {
+
+	        var hex = [
+	            pad2(mathRound(r).toString(16)),
+	            pad2(mathRound(g).toString(16)),
+	            pad2(mathRound(b).toString(16))
+	        ];
+
+	        // Return a 3 character hex if possible
+	        if (allow3Char && hex[0].charAt(0) == hex[0].charAt(1) && hex[1].charAt(0) == hex[1].charAt(1) && hex[2].charAt(0) == hex[2].charAt(1)) {
+	            return hex[0].charAt(0) + hex[1].charAt(0) + hex[2].charAt(0);
+	        }
+
+	        return hex.join("");
+	    }
+
+	    // `rgbaToHex`
+	    // Converts an RGBA color plus alpha transparency to hex
+	    // Assumes r, g, b are contained in the set [0, 255] and
+	    // a in [0, 1]. Returns a 4 or 8 character rgba hex
+	    function rgbaToHex(r, g, b, a, allow4Char) {
+
+	        var hex = [
+	            pad2(mathRound(r).toString(16)),
+	            pad2(mathRound(g).toString(16)),
+	            pad2(mathRound(b).toString(16)),
+	            pad2(convertDecimalToHex(a))
+	        ];
+
+	        // Return a 4 character hex if possible
+	        if (allow4Char && hex[0].charAt(0) == hex[0].charAt(1) && hex[1].charAt(0) == hex[1].charAt(1) && hex[2].charAt(0) == hex[2].charAt(1) && hex[3].charAt(0) == hex[3].charAt(1)) {
+	            return hex[0].charAt(0) + hex[1].charAt(0) + hex[2].charAt(0) + hex[3].charAt(0);
+	        }
+
+	        return hex.join("");
+	    }
+
+	    // `rgbaToArgbHex`
+	    // Converts an RGBA color to an ARGB Hex8 string
+	    // Rarely used, but required for "toFilter()"
+	    function rgbaToArgbHex(r, g, b, a) {
+
+	        var hex = [
+	            pad2(convertDecimalToHex(a)),
+	            pad2(mathRound(r).toString(16)),
+	            pad2(mathRound(g).toString(16)),
+	            pad2(mathRound(b).toString(16))
+	        ];
+
+	        return hex.join("");
+	    }
+
+	    // `equals`
+	    // Can be called with any tinycolor input
+	    tinycolor.equals = function (color1, color2) {
+	        if (!color1 || !color2) { return false; }
+	        return tinycolor(color1).toRgbString() == tinycolor(color2).toRgbString();
+	    };
+
+	    tinycolor.random = function() {
+	        return tinycolor.fromRatio({
+	            r: mathRandom(),
+	            g: mathRandom(),
+	            b: mathRandom()
+	        });
+	    };
+
+
+	    // Modification Functions
+	    // ----------------------
+	    // Thanks to less.js for some of the basics here
+	    // <https://github.com/cloudhead/less.js/blob/master/lib/less/functions.js>
+
+	    function desaturate(color, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 10);
+	        var hsl = tinycolor(color).toHsl();
+	        hsl.s -= amount / 100;
+	        hsl.s = clamp01(hsl.s);
+	        return tinycolor(hsl);
+	    }
+
+	    function saturate(color, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 10);
+	        var hsl = tinycolor(color).toHsl();
+	        hsl.s += amount / 100;
+	        hsl.s = clamp01(hsl.s);
+	        return tinycolor(hsl);
+	    }
+
+	    function greyscale(color) {
+	        return tinycolor(color).desaturate(100);
+	    }
+
+	    function lighten (color, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 10);
+	        var hsl = tinycolor(color).toHsl();
+	        hsl.l += amount / 100;
+	        hsl.l = clamp01(hsl.l);
+	        return tinycolor(hsl);
+	    }
+
+	    function brighten(color, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 10);
+	        var rgb = tinycolor(color).toRgb();
+	        rgb.r = mathMax(0, mathMin(255, rgb.r - mathRound(255 * - (amount / 100))));
+	        rgb.g = mathMax(0, mathMin(255, rgb.g - mathRound(255 * - (amount / 100))));
+	        rgb.b = mathMax(0, mathMin(255, rgb.b - mathRound(255 * - (amount / 100))));
+	        return tinycolor(rgb);
+	    }
+
+	    function darken (color, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 10);
+	        var hsl = tinycolor(color).toHsl();
+	        hsl.l -= amount / 100;
+	        hsl.l = clamp01(hsl.l);
+	        return tinycolor(hsl);
+	    }
+
+	    // Spin takes a positive or negative amount within [-360, 360] indicating the change of hue.
+	    // Values outside of this range will be wrapped into this range.
+	    function spin(color, amount) {
+	        var hsl = tinycolor(color).toHsl();
+	        var hue = (hsl.h + amount) % 360;
+	        hsl.h = hue < 0 ? 360 + hue : hue;
+	        return tinycolor(hsl);
+	    }
+
+	    // Combination Functions
+	    // ---------------------
+	    // Thanks to jQuery xColor for some of the ideas behind these
+	    // <https://github.com/infusion/jQuery-xcolor/blob/master/jquery.xcolor.js>
+
+	    function complement(color) {
+	        var hsl = tinycolor(color).toHsl();
+	        hsl.h = (hsl.h + 180) % 360;
+	        return tinycolor(hsl);
+	    }
+
+	    function triad(color) {
+	        var hsl = tinycolor(color).toHsl();
+	        var h = hsl.h;
+	        return [
+	            tinycolor(color),
+	            tinycolor({ h: (h + 120) % 360, s: hsl.s, l: hsl.l }),
+	            tinycolor({ h: (h + 240) % 360, s: hsl.s, l: hsl.l })
+	        ];
+	    }
+
+	    function tetrad(color) {
+	        var hsl = tinycolor(color).toHsl();
+	        var h = hsl.h;
+	        return [
+	            tinycolor(color),
+	            tinycolor({ h: (h + 90) % 360, s: hsl.s, l: hsl.l }),
+	            tinycolor({ h: (h + 180) % 360, s: hsl.s, l: hsl.l }),
+	            tinycolor({ h: (h + 270) % 360, s: hsl.s, l: hsl.l })
+	        ];
+	    }
+
+	    function splitcomplement(color) {
+	        var hsl = tinycolor(color).toHsl();
+	        var h = hsl.h;
+	        return [
+	            tinycolor(color),
+	            tinycolor({ h: (h + 72) % 360, s: hsl.s, l: hsl.l}),
+	            tinycolor({ h: (h + 216) % 360, s: hsl.s, l: hsl.l})
+	        ];
+	    }
+
+	    function analogous(color, results, slices) {
+	        results = results || 6;
+	        slices = slices || 30;
+
+	        var hsl = tinycolor(color).toHsl();
+	        var part = 360 / slices;
+	        var ret = [tinycolor(color)];
+
+	        for (hsl.h = ((hsl.h - (part * results >> 1)) + 720) % 360; --results; ) {
+	            hsl.h = (hsl.h + part) % 360;
+	            ret.push(tinycolor(hsl));
+	        }
+	        return ret;
+	    }
+
+	    function monochromatic(color, results) {
+	        results = results || 6;
+	        var hsv = tinycolor(color).toHsv();
+	        var h = hsv.h, s = hsv.s, v = hsv.v;
+	        var ret = [];
+	        var modification = 1 / results;
+
+	        while (results--) {
+	            ret.push(tinycolor({ h: h, s: s, v: v}));
+	            v = (v + modification) % 1;
+	        }
+
+	        return ret;
+	    }
+
+	    // Utility Functions
+	    // ---------------------
+
+	    tinycolor.mix = function(color1, color2, amount) {
+	        amount = (amount === 0) ? 0 : (amount || 50);
+
+	        var rgb1 = tinycolor(color1).toRgb();
+	        var rgb2 = tinycolor(color2).toRgb();
+
+	        var p = amount / 100;
+
+	        var rgba = {
+	            r: ((rgb2.r - rgb1.r) * p) + rgb1.r,
+	            g: ((rgb2.g - rgb1.g) * p) + rgb1.g,
+	            b: ((rgb2.b - rgb1.b) * p) + rgb1.b,
+	            a: ((rgb2.a - rgb1.a) * p) + rgb1.a
+	        };
+
+	        return tinycolor(rgba);
+	    };
+
+
+	    // Readability Functions
+	    // ---------------------
+	    // <http://www.w3.org/TR/2008/REC-WCAG20-20081211/#contrast-ratiodef (WCAG Version 2)
+
+	    // `contrast`
+	    // Analyze the 2 colors and returns the color contrast defined by (WCAG Version 2)
+	    tinycolor.readability = function(color1, color2) {
+	        var c1 = tinycolor(color1);
+	        var c2 = tinycolor(color2);
+	        return (Math.max(c1.getLuminance(),c2.getLuminance())+0.05) / (Math.min(c1.getLuminance(),c2.getLuminance())+0.05);
+	    };
+
+	    // `isReadable`
+	    // Ensure that foreground and background color combinations meet WCAG2 guidelines.
+	    // The third argument is an optional Object.
+	    //      the 'level' property states 'AA' or 'AAA' - if missing or invalid, it defaults to 'AA';
+	    //      the 'size' property states 'large' or 'small' - if missing or invalid, it defaults to 'small'.
+	    // If the entire object is absent, isReadable defaults to {level:"AA",size:"small"}.
+
+	    // *Example*
+	    //    tinycolor.isReadable("#000", "#111") => false
+	    //    tinycolor.isReadable("#000", "#111",{level:"AA",size:"large"}) => false
+	    tinycolor.isReadable = function(color1, color2, wcag2) {
+	        var readability = tinycolor.readability(color1, color2);
+	        var wcag2Parms, out;
+
+	        out = false;
+
+	        wcag2Parms = validateWCAG2Parms(wcag2);
+	        switch (wcag2Parms.level + wcag2Parms.size) {
+	            case "AAsmall":
+	            case "AAAlarge":
+	                out = readability >= 4.5;
+	                break;
+	            case "AAlarge":
+	                out = readability >= 3;
+	                break;
+	            case "AAAsmall":
+	                out = readability >= 7;
+	                break;
+	        }
+	        return out;
+
+	    };
+
+	    // `mostReadable`
+	    // Given a base color and a list of possible foreground or background
+	    // colors for that base, returns the most readable color.
+	    // Optionally returns Black or White if the most readable color is unreadable.
+	    // *Example*
+	    //    tinycolor.mostReadable(tinycolor.mostReadable("#123", ["#124", "#125"],{includeFallbackColors:false}).toHexString(); // "#112255"
+	    //    tinycolor.mostReadable(tinycolor.mostReadable("#123", ["#124", "#125"],{includeFallbackColors:true}).toHexString();  // "#ffffff"
+	    //    tinycolor.mostReadable("#a8015a", ["#faf3f3"],{includeFallbackColors:true,level:"AAA",size:"large"}).toHexString(); // "#faf3f3"
+	    //    tinycolor.mostReadable("#a8015a", ["#faf3f3"],{includeFallbackColors:true,level:"AAA",size:"small"}).toHexString(); // "#ffffff"
+	    tinycolor.mostReadable = function(baseColor, colorList, args) {
+	        var bestColor = null;
+	        var bestScore = 0;
+	        var readability;
+	        var includeFallbackColors, level, size ;
+	        args = args || {};
+	        includeFallbackColors = args.includeFallbackColors ;
+	        level = args.level;
+	        size = args.size;
+
+	        for (var i= 0; i < colorList.length ; i++) {
+	            readability = tinycolor.readability(baseColor, colorList[i]);
+	            if (readability > bestScore) {
+	                bestScore = readability;
+	                bestColor = tinycolor(colorList[i]);
+	            }
+	        }
+
+	        if (tinycolor.isReadable(baseColor, bestColor, {"level":level,"size":size}) || !includeFallbackColors) {
+	            return bestColor;
+	        }
+	        else {
+	            args.includeFallbackColors=false;
+	            return tinycolor.mostReadable(baseColor,["#fff", "#000"],args);
+	        }
+	    };
+
+
+	    // Big List of Colors
+	    // ------------------
+	    // <http://www.w3.org/TR/css3-color/#svg-color>
+	    var names = tinycolor.names = {
+	        aliceblue: "f0f8ff",
+	        antiquewhite: "faebd7",
+	        aqua: "0ff",
+	        aquamarine: "7fffd4",
+	        azure: "f0ffff",
+	        beige: "f5f5dc",
+	        bisque: "ffe4c4",
+	        black: "000",
+	        blanchedalmond: "ffebcd",
+	        blue: "00f",
+	        blueviolet: "8a2be2",
+	        brown: "a52a2a",
+	        burlywood: "deb887",
+	        burntsienna: "ea7e5d",
+	        cadetblue: "5f9ea0",
+	        chartreuse: "7fff00",
+	        chocolate: "d2691e",
+	        coral: "ff7f50",
+	        cornflowerblue: "6495ed",
+	        cornsilk: "fff8dc",
+	        crimson: "dc143c",
+	        cyan: "0ff",
+	        darkblue: "00008b",
+	        darkcyan: "008b8b",
+	        darkgoldenrod: "b8860b",
+	        darkgray: "a9a9a9",
+	        darkgreen: "006400",
+	        darkgrey: "a9a9a9",
+	        darkkhaki: "bdb76b",
+	        darkmagenta: "8b008b",
+	        darkolivegreen: "556b2f",
+	        darkorange: "ff8c00",
+	        darkorchid: "9932cc",
+	        darkred: "8b0000",
+	        darksalmon: "e9967a",
+	        darkseagreen: "8fbc8f",
+	        darkslateblue: "483d8b",
+	        darkslategray: "2f4f4f",
+	        darkslategrey: "2f4f4f",
+	        darkturquoise: "00ced1",
+	        darkviolet: "9400d3",
+	        deeppink: "ff1493",
+	        deepskyblue: "00bfff",
+	        dimgray: "696969",
+	        dimgrey: "696969",
+	        dodgerblue: "1e90ff",
+	        firebrick: "b22222",
+	        floralwhite: "fffaf0",
+	        forestgreen: "228b22",
+	        fuchsia: "f0f",
+	        gainsboro: "dcdcdc",
+	        ghostwhite: "f8f8ff",
+	        gold: "ffd700",
+	        goldenrod: "daa520",
+	        gray: "808080",
+	        green: "008000",
+	        greenyellow: "adff2f",
+	        grey: "808080",
+	        honeydew: "f0fff0",
+	        hotpink: "ff69b4",
+	        indianred: "cd5c5c",
+	        indigo: "4b0082",
+	        ivory: "fffff0",
+	        khaki: "f0e68c",
+	        lavender: "e6e6fa",
+	        lavenderblush: "fff0f5",
+	        lawngreen: "7cfc00",
+	        lemonchiffon: "fffacd",
+	        lightblue: "add8e6",
+	        lightcoral: "f08080",
+	        lightcyan: "e0ffff",
+	        lightgoldenrodyellow: "fafad2",
+	        lightgray: "d3d3d3",
+	        lightgreen: "90ee90",
+	        lightgrey: "d3d3d3",
+	        lightpink: "ffb6c1",
+	        lightsalmon: "ffa07a",
+	        lightseagreen: "20b2aa",
+	        lightskyblue: "87cefa",
+	        lightslategray: "789",
+	        lightslategrey: "789",
+	        lightsteelblue: "b0c4de",
+	        lightyellow: "ffffe0",
+	        lime: "0f0",
+	        limegreen: "32cd32",
+	        linen: "faf0e6",
+	        magenta: "f0f",
+	        maroon: "800000",
+	        mediumaquamarine: "66cdaa",
+	        mediumblue: "0000cd",
+	        mediumorchid: "ba55d3",
+	        mediumpurple: "9370db",
+	        mediumseagreen: "3cb371",
+	        mediumslateblue: "7b68ee",
+	        mediumspringgreen: "00fa9a",
+	        mediumturquoise: "48d1cc",
+	        mediumvioletred: "c71585",
+	        midnightblue: "191970",
+	        mintcream: "f5fffa",
+	        mistyrose: "ffe4e1",
+	        moccasin: "ffe4b5",
+	        navajowhite: "ffdead",
+	        navy: "000080",
+	        oldlace: "fdf5e6",
+	        olive: "808000",
+	        olivedrab: "6b8e23",
+	        orange: "ffa500",
+	        orangered: "ff4500",
+	        orchid: "da70d6",
+	        palegoldenrod: "eee8aa",
+	        palegreen: "98fb98",
+	        paleturquoise: "afeeee",
+	        palevioletred: "db7093",
+	        papayawhip: "ffefd5",
+	        peachpuff: "ffdab9",
+	        peru: "cd853f",
+	        pink: "ffc0cb",
+	        plum: "dda0dd",
+	        powderblue: "b0e0e6",
+	        purple: "800080",
+	        rebeccapurple: "663399",
+	        red: "f00",
+	        rosybrown: "bc8f8f",
+	        royalblue: "4169e1",
+	        saddlebrown: "8b4513",
+	        salmon: "fa8072",
+	        sandybrown: "f4a460",
+	        seagreen: "2e8b57",
+	        seashell: "fff5ee",
+	        sienna: "a0522d",
+	        silver: "c0c0c0",
+	        skyblue: "87ceeb",
+	        slateblue: "6a5acd",
+	        slategray: "708090",
+	        slategrey: "708090",
+	        snow: "fffafa",
+	        springgreen: "00ff7f",
+	        steelblue: "4682b4",
+	        tan: "d2b48c",
+	        teal: "008080",
+	        thistle: "d8bfd8",
+	        tomato: "ff6347",
+	        turquoise: "40e0d0",
+	        violet: "ee82ee",
+	        wheat: "f5deb3",
+	        white: "fff",
+	        whitesmoke: "f5f5f5",
+	        yellow: "ff0",
+	        yellowgreen: "9acd32"
+	    };
+
+	    // Make it easy to access colors via `hexNames[hex]`
+	    var hexNames = tinycolor.hexNames = flip(names);
+
+
+	    // Utilities
+	    // ---------
+
+	    // `{ 'name1': 'val1' }` becomes `{ 'val1': 'name1' }`
+	    function flip(o) {
+	        var flipped = { };
+	        for (var i in o) {
+	            if (o.hasOwnProperty(i)) {
+	                flipped[o[i]] = i;
+	            }
+	        }
+	        return flipped;
+	    }
+
+	    // Return a valid alpha value [0,1] with all invalid values being set to 1
+	    function boundAlpha(a) {
+	        a = parseFloat(a);
+
+	        if (isNaN(a) || a < 0 || a > 1) {
+	            a = 1;
+	        }
+
+	        return a;
+	    }
+
+	    // Take input from [0, n] and return it as [0, 1]
+	    function bound01(n, max) {
+	        if (isOnePointZero(n)) { n = "100%"; }
+
+	        var processPercent = isPercentage(n);
+	        n = mathMin(max, mathMax(0, parseFloat(n)));
+
+	        // Automatically convert percentage into number
+	        if (processPercent) {
+	            n = parseInt(n * max, 10) / 100;
+	        }
+
+	        // Handle floating point rounding errors
+	        if ((Math.abs(n - max) < 0.000001)) {
+	            return 1;
+	        }
+
+	        // Convert into [0, 1] range if it isn't already
+	        return (n % max) / parseFloat(max);
+	    }
+
+	    // Force a number between 0 and 1
+	    function clamp01(val) {
+	        return mathMin(1, mathMax(0, val));
+	    }
+
+	    // Parse a base-16 hex value into a base-10 integer
+	    function parseIntFromHex(val) {
+	        return parseInt(val, 16);
+	    }
+
+	    // Need to handle 1.0 as 100%, since once it is a number, there is no difference between it and 1
+	    // <http://stackoverflow.com/questions/7422072/javascript-how-to-detect-number-as-a-decimal-including-1-0>
+	    function isOnePointZero(n) {
+	        return typeof n == "string" && n.indexOf('.') != -1 && parseFloat(n) === 1;
+	    }
+
+	    // Check to see if string passed in is a percentage
+	    function isPercentage(n) {
+	        return typeof n === "string" && n.indexOf('%') != -1;
+	    }
+
+	    // Force a hex value to have 2 characters
+	    function pad2(c) {
+	        return c.length == 1 ? '0' + c : '' + c;
+	    }
+
+	    // Replace a decimal with it's percentage value
+	    function convertToPercentage(n) {
+	        if (n <= 1) {
+	            n = (n * 100) + "%";
+	        }
+
+	        return n;
+	    }
+
+	    // Converts a decimal to a hex value
+	    function convertDecimalToHex(d) {
+	        return Math.round(parseFloat(d) * 255).toString(16);
+	    }
+	    // Converts a hex value to a decimal
+	    function convertHexToDecimal(h) {
+	        return (parseIntFromHex(h) / 255);
+	    }
+
+	    var matchers = (function() {
+
+	        // <http://www.w3.org/TR/css3-values/#integers>
+	        var CSS_INTEGER = "[-\\+]?\\d+%?";
+
+	        // <http://www.w3.org/TR/css3-values/#number-value>
+	        var CSS_NUMBER = "[-\\+]?\\d*\\.\\d+%?";
+
+	        // Allow positive/negative integer/number.  Don't capture the either/or, just the entire outcome.
+	        var CSS_UNIT = "(?:" + CSS_NUMBER + ")|(?:" + CSS_INTEGER + ")";
+
+	        // Actual matching.
+	        // Parentheses and commas are optional, but not required.
+	        // Whitespace can take the place of commas or opening paren
+	        var PERMISSIVE_MATCH3 = "[\\s|\\(]+(" + CSS_UNIT + ")[,|\\s]+(" + CSS_UNIT + ")[,|\\s]+(" + CSS_UNIT + ")\\s*\\)?";
+	        var PERMISSIVE_MATCH4 = "[\\s|\\(]+(" + CSS_UNIT + ")[,|\\s]+(" + CSS_UNIT + ")[,|\\s]+(" + CSS_UNIT + ")[,|\\s]+(" + CSS_UNIT + ")\\s*\\)?";
+
+	        return {
+	            CSS_UNIT: new RegExp(CSS_UNIT),
+	            rgb: new RegExp("rgb" + PERMISSIVE_MATCH3),
+	            rgba: new RegExp("rgba" + PERMISSIVE_MATCH4),
+	            hsl: new RegExp("hsl" + PERMISSIVE_MATCH3),
+	            hsla: new RegExp("hsla" + PERMISSIVE_MATCH4),
+	            hsv: new RegExp("hsv" + PERMISSIVE_MATCH3),
+	            hsva: new RegExp("hsva" + PERMISSIVE_MATCH4),
+	            hex3: /^#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})$/,
+	            hex6: /^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/,
+	            hex4: /^#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})$/,
+	            hex8: /^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/
+	        };
+	    })();
+
+	    // `isValidCSSUnit`
+	    // Take in a single string / number and check to see if it looks like a CSS unit
+	    // (see `matchers` above for definition).
+	    function isValidCSSUnit(color) {
+	        return !!matchers.CSS_UNIT.exec(color);
+	    }
+
+	    // `stringInputToObject`
+	    // Permissive string parsing.  Take in a number of formats, and output an object
+	    // based on detected format.  Returns `{ r, g, b }` or `{ h, s, l }` or `{ h, s, v}`
+	    function stringInputToObject(color) {
+
+	        color = color.replace(trimLeft,'').replace(trimRight, '').toLowerCase();
+	        var named = false;
+	        if (names[color]) {
+	            color = names[color];
+	            named = true;
+	        }
+	        else if (color == 'transparent') {
+	            return { r: 0, g: 0, b: 0, a: 0, format: "name" };
+	        }
+
+	        // Try to match string input using regular expressions.
+	        // Keep most of the number bounding out of this function - don't worry about [0,1] or [0,100] or [0,360]
+	        // Just return an object and let the conversion functions handle that.
+	        // This way the result will be the same whether the tinycolor is initialized with string or object.
+	        var match;
+	        if ((match = matchers.rgb.exec(color))) {
+	            return { r: match[1], g: match[2], b: match[3] };
+	        }
+	        if ((match = matchers.rgba.exec(color))) {
+	            return { r: match[1], g: match[2], b: match[3], a: match[4] };
+	        }
+	        if ((match = matchers.hsl.exec(color))) {
+	            return { h: match[1], s: match[2], l: match[3] };
+	        }
+	        if ((match = matchers.hsla.exec(color))) {
+	            return { h: match[1], s: match[2], l: match[3], a: match[4] };
+	        }
+	        if ((match = matchers.hsv.exec(color))) {
+	            return { h: match[1], s: match[2], v: match[3] };
+	        }
+	        if ((match = matchers.hsva.exec(color))) {
+	            return { h: match[1], s: match[2], v: match[3], a: match[4] };
+	        }
+	        if ((match = matchers.hex8.exec(color))) {
+	            return {
+	                r: parseIntFromHex(match[1]),
+	                g: parseIntFromHex(match[2]),
+	                b: parseIntFromHex(match[3]),
+	                a: convertHexToDecimal(match[4]),
+	                format: named ? "name" : "hex8"
+	            };
+	        }
+	        if ((match = matchers.hex6.exec(color))) {
+	            return {
+	                r: parseIntFromHex(match[1]),
+	                g: parseIntFromHex(match[2]),
+	                b: parseIntFromHex(match[3]),
+	                format: named ? "name" : "hex"
+	            };
+	        }
+	        if ((match = matchers.hex4.exec(color))) {
+	            return {
+	                r: parseIntFromHex(match[1] + '' + match[1]),
+	                g: parseIntFromHex(match[2] + '' + match[2]),
+	                b: parseIntFromHex(match[3] + '' + match[3]),
+	                a: convertHexToDecimal(match[4] + '' + match[4]),
+	                format: named ? "name" : "hex8"
+	            };
+	        }
+	        if ((match = matchers.hex3.exec(color))) {
+	            return {
+	                r: parseIntFromHex(match[1] + '' + match[1]),
+	                g: parseIntFromHex(match[2] + '' + match[2]),
+	                b: parseIntFromHex(match[3] + '' + match[3]),
+	                format: named ? "name" : "hex"
+	            };
+	        }
+
+	        return false;
+	    }
+
+	    function validateWCAG2Parms(parms) {
+	        // return valid WCAG2 parms for isReadable.
+	        // If input parms are invalid, return {"level":"AA", "size":"small"}
+	        var level, size;
+	        parms = parms || {"level":"AA", "size":"small"};
+	        level = (parms.level || "AA").toUpperCase();
+	        size = (parms.size || "small").toLowerCase();
+	        if (level !== "AA" && level !== "AAA") {
+	            level = "AA";
+	        }
+	        if (size !== "small" && size !== "large") {
+	            size = "small";
+	        }
+	        return {"level":level, "size":size};
+	    }
+
+	    return tinycolor;
+
+	    })(Math);
+
 	    return SplunkVisualizationBase.extend(vizObj);
 	}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
 

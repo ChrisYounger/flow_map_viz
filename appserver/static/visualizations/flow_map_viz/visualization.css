@@ -4,8 +4,8 @@
 .flow_map_viz-canvas,
 .flow_map_viz-svg,
 .flow_map_viz-svgNodes,
-.flow_map_viz-htmllinklabels,
-.flow_map_viz-htmlnodelabels {
+.flow_map_viz-linklabels,
+.flow_map_viz-nodelabels {
     position:absolute;
     top: 0;
     left: 0;
@@ -44,20 +44,30 @@
     color:#5c6773;
     cursor: pointer;
     opacity: 0;
+    background-color: white;
+    padding: 5px;
+    border-radius: 2px;
+}
+.flow_map_viz-copylink:hover {
+  background-color:#eee;
 }
 .dashboard.view-mode .flow_map_viz-copylink {
     display: none;
 }
+.flow_map_viz-nodeset > div,
+.flow_map_viz-nodeset > i {
+  position: absolute;
+}
 
-.flow_map_viz-htmlnodelabels > div {
-    pointer-events: none;
+.flow_map_viz-nodelabels > div {
+    /*pointer-events: none;*/
     position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.flow_map_viz-htmllinklabels > div {
-    pointer-events: none;
+.flow_map_viz-linklabels > div {
+    /*pointer-events: none;*/
     position: absolute;
     display: flex;
     align-items: center;
