@@ -458,6 +458,15 @@ function(
             return "0 3px 6px " + tinycolor(clr).setAlpha(0.16).toRgbString() + ", 0 3px 6px " + tinycolor(clr).setAlpha(0.23).toRgbString();
         },
 
+        escapeHtml: function(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        },
+
         doDraw: function() {
             var viz = this;
             var invalidRows = 0;
@@ -760,7 +769,8 @@ function(
                         .select(".flow_map_viz-nodelabel")
                         .style("margin-left", function(d){ return d.labelx + "px"; })
                         .style("margin-top", function(d){ return d.labely + "px"; })
-                        .html(function(d) { return d.label; })
+                        .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; })
+
                 });
 
             // Create the links (edges) as d3 objects
