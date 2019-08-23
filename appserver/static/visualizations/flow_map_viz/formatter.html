@@ -296,17 +296,10 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Allow HTML in labels">
+        <splunk-control-group label="Allow HTML labels">
                 <splunk-radio-input name="{{VIZ_NAMESPACE}}.labels_as_html" value="no">
                         <option value="yes">Yes</option>
                         <option value="no">No</option>
-                </splunk-radio-input>
-        </splunk-control-group>
-
-        <splunk-control-group label="Renderer">
-                <splunk-radio-input name="{{VIZ_NAMESPACE}}.renderer" value="canvas">
-                        <option value="canvas">Canvas</option>
-                        <option value="svg">SVG</option>
                 </splunk-radio-input>
         </splunk-control-group>
 
@@ -326,7 +319,7 @@
         </splunk-control-group>
 
         <splunk-control-group label="Center force">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.node_center_force" value="0.01"></splunk-text-input>
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.node_center_force" value="0.1"></splunk-text-input>
         </splunk-control-group>
 
 </form>

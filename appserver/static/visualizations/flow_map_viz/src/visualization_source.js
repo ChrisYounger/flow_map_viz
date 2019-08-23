@@ -40,7 +40,7 @@ function(
                 maxnodes: "100",
                 stop_when_not_visible: "yes",
                 node_repel_force: "1000",
-                node_center_force: "0.01",
+                node_center_force: "0.1",
                 positions: "",
                 labels_as_html: "no",
                 background_mode: "transparent",
@@ -103,6 +103,7 @@ function(
             }, 300);
         },
 
+        // read a row of input data and put it into a normalisaed object
         newNode: function(id, opts, order){
             var viz = this;
             if (! viz.nodeDataMap.hasOwnProperty(id)){
@@ -113,6 +114,7 @@ function(
             if (viz.nodeDataMap[id].drawIteration === viz.drawIteration) {
                 return;
             }
+            // It doesnt make sense for a "node" row to be specified multiple times
             viz.nodeDataMap[id].id = id;
             viz.nodeDataMap[id].drawIteration = viz.drawIteration;
             viz.nodeDataMap[id].order = order;
@@ -132,8 +134,8 @@ function(
 
         newLink: function(from, to, opts, isFromLink, isToLink){
             var viz = this;
-            console.log(isFromLink, isToLink);
             var id = from + "---" + to;
+            // First time seeing this data
             if (! viz.linkDataMap.hasOwnProperty(id)){
                 viz.linkDataMap[id] = {
                     timeouts: {},
@@ -142,7 +144,14 @@ function(
                 };
                 viz.linkData.push(viz.linkDataMap[id]);
             }
+            // A link can occur multiple times in the data. More common in "path" style data definitions
             if (viz.linkDataMap[id].drawIteration !== viz.drawIteration) {
+                // These cant change
+                viz.linkDataMap[id].id = id;
+                viz.linkDataMap[id].drawIteration = viz.drawIteration;
+                viz.linkDataMap[id].source = from;
+                viz.linkDataMap[id].target = to;
+                // Set default values
                 viz.linkDataMap[id].good = 0;
                 viz.linkDataMap[id].warn = 0;
                 viz.linkDataMap[id].error = 0;
@@ -157,14 +166,11 @@ function(
                 viz.linkDataMap[id].tooltip = null;
                 viz.linkDataMap[id].label = null;
             }
-            viz.linkDataMap[id].id = id;
-            viz.linkDataMap[id].drawIteration = viz.drawIteration;
-            viz.linkDataMap[id].source = from;
-            viz.linkDataMap[id].target = to;
+            // If the link occurs multiple times in data, the good, warn, error values are summed together 
             viz.linkDataMap[id].good += opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
             viz.linkDataMap[id].warn += opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
             viz.linkDataMap[id].error += opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
-
+            // These settings will only set the value if set in data. In case the same value is set multiple times, the last value will take effect
             viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.linkDataMap[id].color;
             viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.linkDataMap[id].width;
             viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.linkDataMap[id].distance;
@@ -182,7 +188,6 @@ function(
             var viz = this;
             return d3.drag()
                 .on("start", function(d) {
-                    viz.particleGroup.selectAll("circle").remove();
                     viz.activeParticles = [];
                     viz.isDragging = true;
                     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
@@ -196,9 +201,9 @@ function(
                 .on("end", function(d) {
                     viz.isDragging = false;
                     viz.positions[d.id] = "" + Math.round(d.fx / viz.config.containerWidth * 100) + "," + Math.round(d.fy / viz.config.containerHeight * 100);
+                    // restart particles again
                     clearTimeout(viz.startParticlesTimeout);
                     viz.startParticlesTimeout = setTimeout(function(){
-                        // do all particles again
                         viz.startParticles();
                     }, viz.delayUntilParticles);
                     if (!d3.event.active) simulation.alphaTarget(0);
@@ -208,49 +213,6 @@ function(
                         viz.positionsButton.css("opacity",0);
                     }, 10000);
                 });
-        },
-
-        copyTextToClipboard: function(text) {
-            var viz = this;
-            if (!navigator.clipboard) {
-                viz.fallbackCopyTextToClipboard(text);
-                return;
-            }
-            navigator.clipboard.writeText(text).then(function () {
-                viz.toast('Copied to clipboard! (now paste into settings)');
-            }, function (err) {
-                console.error('Async: Could not copy text: ', err);
-            });
-        },
-
-        fallbackCopyTextToClipboard: function(text) {
-            var viz = this;
-            var textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                viz.toast('Copied to clipboard! (now paste into settings)');
-            } catch (err) {
-                console.error('Fallback: Oops, unable to copy', err);
-            }
-            document.body.removeChild(textArea);
-        },
-
-        // Toast popup message
-        toast: function(message) {
-            var t = $("<div style='background-color: #53a051; width: 432px;  height: 60px; position: fixed; top: 100px; margin-left: -116px;  left: 50%; line-height: 60px; padding: 0 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23); color: white; opacity: 0; transform: translateY(30px); text-align: center; transition: all 300ms;'><span></span></div>");
-            t.appendTo("body").find('span').text(message);
-            setTimeout(function(){
-                t.css({'opacity': 1, 'transform': 'translateY(0)'});
-                setTimeout(function(){
-                    t.css({'opacity': 0, 'transform': 'translateY(30px)'});
-                    setTimeout(function(){
-                        t.remove();
-                    },300);
-                },3000);
-            },10);
         },
 
         // Write the current position of elements to the console
@@ -263,14 +225,13 @@ function(
 
         startParticles: function() {
             var viz = this;
+            viz.stopAllParticles();
             if (viz.particleMultiplier === 0) {
                 return;
             }
             for (var i = 0; i < viz.linkData.length; i++) {
                 for (var particletype in viz.particleTypes) {
-                    if (viz.particleTypes.hasOwnProperty(particletype)) {
-                        viz.startParticleGroup(viz.linkData[i], particletype);
-                    }
+                    viz.startParticleGroup(viz.linkData[i], particletype);
                 }
             }
         },
@@ -279,9 +240,6 @@ function(
         // Each link can have three of these for good/warn/error particles
         startParticleGroup: function(link_details, particletype) {
             var viz = this;
-            // Stop any existing timers
-            clearTimeout(link_details.timeouts[particletype]);
-            clearInterval(link_details.intervals[particletype]);
             // No particles of this type
             if (link_details[particletype] <= 0) {
                 return;
@@ -327,19 +285,8 @@ function(
                         color: viz.particleTypes[particletype],
                         duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
                     });
+                    //console.log("Total particles:", viz.activeParticles.length);
                 }
-            } else {
-                viz.particleGroup.append("circle")
-                    .attr("cx", (jitter1 + link_details.source.x))
-                    .attr("cy", (jitter2 + link_details.source.y))
-                    .attr("r", viz.config.particle_size)
-                    .attr("fill", viz.particleTypes[particletype])
-                    .transition()
-                        // Randomise the speed of the particles
-                        .duration(base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2))
-                        .ease(d3.easeLinear)
-                        .attr("cx", (jitter1 + link_details.target.x)).attr("cy", (jitter2 + link_details.target.y))
-                        .remove();
             }
         },
 
@@ -380,7 +327,16 @@ function(
             }
         },
 
-        removeParticles: function(link_details) {
+        stopAllParticles: function() {
+            var viz = this;
+            if (viz.hasOwnProperty("linkData")) {
+                for (var i = 0; i < viz.linkData.length; i++) {
+                    viz.stopParticles(viz.linkData[i]);
+                }
+            }
+        },
+
+        stopParticles: function(link_details) {
             var viz = this;
             for (var particletype in viz.particleTypes) {
                 if (viz.particleTypes.hasOwnProperty(particletype)) {
@@ -393,11 +349,7 @@ function(
         doRemove: function(){
             var viz = this;
             delete viz.drawIteration;
-            if (viz.hasOwnProperty("linkData")) {
-                for (var i = 0; i < viz.linkData.length; i++) {
-                    viz.removeParticles(viz.linkData[i]);
-                }
-            }
+            viz.stopAllParticles();
         },
 
         antAnimate: function(path) {
@@ -427,15 +379,6 @@ function(
                 clr = viz.config.node_shadow_color;
             }
             return "0 3px 6px " + tinycolor(clr).setAlpha(0.16).toRgbString() + ", 0 3px 6px " + tinycolor(clr).setAlpha(0.23).toRgbString();
-        },
-
-        escapeHtml: function(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
         },
 
         doDraw: function() {
@@ -523,7 +466,7 @@ function(
             for (k = viz.linkData.length - 1; k >= 0 ; k--) {
                 if (viz.drawIteration !== viz.linkData[k].drawIteration) {
                     // link has been removed, stop particles 
-                    viz.removeParticles(viz.linkData[k]);
+                    viz.stopParticles(viz.linkData[k]);
                     delete viz.linkDataMap[viz.linkData[k].id];
                     viz.linkData.splice(k, 1);
                     continue;
@@ -598,18 +541,12 @@ function(
                 return;
             }
 
-            delete viz.isFinishedDrawing;
-            console.log("pausing draws");
+            //delete viz.isFinishedDrawing;
 
             // Add SVG to the page
             if (viz.drawIteration === 1) {
                 viz.svg = d3.create("svg")
                     .attr("class", "flow_map_viz-svg")
-                    .attr("width", viz.config.containerWidth + "px")
-                    .attr("height", viz.config.containerHeight + "px")
-                    .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
-                viz.svgNodes = d3.create("svg")
-                    .attr("class", "flow_map_viz-svgNodes")
                     .attr("width", viz.config.containerWidth + "px")
                     .attr("height", viz.config.containerHeight + "px")
                     .attr("viewBox", [0, 0, viz.config.containerWidth, viz.config.containerHeight]);
@@ -634,14 +571,11 @@ function(
                         viz.updateCanvas();
                     });
                 }
-                viz.$container_wrap.append(viz.svgNodes.node());
 
                 // Add groups in the correct order for layering
                 viz.linkGroup = viz.svg.append("g")
                     .attr("stroke-opacity", viz.config.link_opacity)
                     .attr("class", "flow_map_viz-links");
-                viz.particleGroup = viz.svg.append("g")
-                    .attr("class", "flow_map_viz-particles");
                 viz.linkLabelGroup = d3.create("div")
                     .style("font", viz.config.link_text_size + "px sans-serif")
                     .style("color", viz.config.link_label_color)
@@ -754,7 +688,7 @@ function(
                 .selectAll(".flow_map_viz-nodeset")
                 .data(viz.nodeData, function(d){ return d.id; });
 
-            viz.nodeSelection.exit().call(function(d){console.log("removing", d.label);}).remove();
+            viz.nodeSelection.exit().remove();
 
             viz.nodeSelection.enter()
                 .append("div")
@@ -771,8 +705,7 @@ function(
                         .style("-webkit-text-stroke-width", viz.config.node_border_width + "px");
                     selection
                         .append("div")
-                        .attr("class", "flow_map_viz-nodelabel")
-                        .call(function(d){ console.log("adding", d.label); });
+                        .attr("class", "flow_map_viz-nodelabel");
                 })
                 .call(viz.drag(viz.simulation));
 
@@ -791,7 +724,7 @@ function(
                         .select(".flow_map_viz-nodelabel")
                         .style("margin-left", function(d){ return d.labelx + "px"; })
                         .style("margin-top", function(d){ return d.labely + "px"; })
-                        .html(function(d) { console.log("Setting label on", d.label); return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
+                        .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
 
                     // non icon types (there will be unexpected results if a node changes between an icon and nonicon dynamically)
                     selection
@@ -866,13 +799,64 @@ function(
                 viz.startParticles();
             }, viz.delayUntilParticles);
 
-            console.log("allowing draws");
-            viz.isFinishedDrawing = (new Date).getTime();
+            //viz.isFinishedDrawing = (new Date).getTime();
 
             // trigger force layout
             viz.simulation.nodes(viz.nodeData);
             viz.simulation.force("link").links(viz.linkData);
             viz.simulation.alpha(0.3).restart();
+        },
+
+        copyTextToClipboard: function(text) {
+            var viz = this;
+            if (!navigator.clipboard) {
+                viz.fallbackCopyTextToClipboard(text);
+                return;
+            }
+            navigator.clipboard.writeText(text).then(function () {
+                viz.toast('Copied to clipboard! (now paste into settings)');
+            }, function (err) {
+                console.error('Async: Could not copy text: ', err);
+            });
+        },
+
+        fallbackCopyTextToClipboard: function(text) {
+            var viz = this;
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                viz.toast('Copied to clipboard! (now paste into settings)');
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        },
+
+        // Toast popup message
+        toast: function(message) {
+            var t = $("<div style='background-color: #53a051; width: 432px;  height: 60px; position: fixed; top: 100px; margin-left: -116px;  left: 50%; line-height: 60px; padding: 0 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23); color: white; opacity: 0; transform: translateY(30px); text-align: center; transition: all 300ms;'><span></span></div>");
+            t.appendTo("body").find('span').text(message);
+            setTimeout(function(){
+                t.css({'opacity': 1, 'transform': 'translateY(0)'});
+                setTimeout(function(){
+                    t.css({'opacity': 0, 'transform': 'translateY(30px)'});
+                    setTimeout(function(){
+                        t.remove();
+                    },300);
+                },3000);
+            },10);
+        },
+        
+        escapeHtml: function(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         },
 
         // Override to respond to re-sizing events
@@ -888,6 +872,11 @@ function(
             });
         },
     };
+
+
+
+
+
 
 
 // ##########################################################################################################################################################
