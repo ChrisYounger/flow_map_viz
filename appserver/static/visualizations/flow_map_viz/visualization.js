@@ -50,8 +50,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	// TODO add arrow mode
 	// TODO add drilldowns/tokens
 	// highlight link/nodes/labels on hover.
-	// ability to do paths that are pipe seperated. maybe a new "path=" node
-	// remove svg renderer - conver it to arrows
+	// remove svg renderer - convert it to arrows
 	// addon bugs in customer environment
 	// check all nan edge cases
 
@@ -103,7 +102,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                link_text_size: "10",
 	                line_style: "solid",
 
-	                particle_limit: "100",
+	                particle_limit: "1000",
 	                particle_good_color: "#1a9035",
 	                particle_warn_color: "#d16f18",
 	                particle_error_color: "#b22b32",
@@ -176,36 +175,51 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.nodeDataMap[id].radius = Math.min(viz.nodeDataMap[id].height/2, viz.nodeDataMap[id].width/2) + Number(viz.config.node_border_width) + 1;
 	        },
 
-	        newLink: function(opts){
+	        newLink: function(from, to, opts, isFromLink, isToLink){
 	            var viz = this;
-	            var id = opts.from + "---" + opts.to;
+	            console.log(isFromLink, isToLink);
+	            var id = from + "---" + to;
 	            if (! viz.linkDataMap.hasOwnProperty(id)){
 	                viz.linkDataMap[id] = {
 	                    timeouts: {},
 	                    intervals: {},
+	                    drawIteration: -1,
 	                };
 	                viz.linkData.push(viz.linkDataMap[id]);
 	            }
+	            if (viz.linkDataMap[id].drawIteration !== viz.drawIteration) {
+	                viz.linkDataMap[id].good = 0;
+	                viz.linkDataMap[id].warn = 0;
+	                viz.linkDataMap[id].error = 0;
+	                viz.linkDataMap[id].color = viz.config.link_color;
+	                viz.linkDataMap[id].width = viz.config.link_width;
+	                viz.linkDataMap[id].distance = viz.config.link_distance;
+	                viz.linkDataMap[id].speed = viz.config.link_speed;
+	                viz.linkDataMap[id].labelx = "0";
+	                viz.linkDataMap[id].labely = "0";
+	                viz.linkDataMap[id].sourcepoint = "";
+	                viz.linkDataMap[id].targetpoint = "";
+	                viz.linkDataMap[id].tooltip = null;
+	                viz.linkDataMap[id].label = null;
+	            }
 	            viz.linkDataMap[id].id = id;
 	            viz.linkDataMap[id].drawIteration = viz.drawIteration;
-	            viz.linkDataMap[id].source = opts.from;
-	            viz.linkDataMap[id].target = opts.to;
-	            viz.linkDataMap[id].good = opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
-	            viz.linkDataMap[id].warn = opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
-	            viz.linkDataMap[id].error = opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
-	            viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.config.link_color;
-	            viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.config.link_width;
-	            viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.config.link_distance;
-	            viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.config.link_speed;
-	            var defaultLabel = (opts.hasOwnProperty("good") && opts.good !== "" ? "Good: " + opts.good : "") + 
-	                (opts.hasOwnProperty("warn") && opts.warn !== "" ? " Warn: " + opts.warn : "") + 
-	                (opts.hasOwnProperty("error") && opts.error !== "" ? " Error: " + opts.error : "");
-	            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") && opts.tooltip !== "" ? opts.tooltip : "[" + opts.from + "] to [" + opts.to + "]: " + defaultLabel;
-	            viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : defaultLabel;
-	            viz.linkDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : "0";
-	            viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : "0";
-	            viz.linkDataMap[id].sourcepoint = opts.hasOwnProperty("fromside") ? opts.fromside : "";
-	            viz.linkDataMap[id].targetpoint = opts.hasOwnProperty("toside") ? opts.toside : "";
+	            viz.linkDataMap[id].source = from;
+	            viz.linkDataMap[id].target = to;
+	            viz.linkDataMap[id].good += opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
+	            viz.linkDataMap[id].warn += opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
+	            viz.linkDataMap[id].error += opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
+
+	            viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.linkDataMap[id].color;
+	            viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.linkDataMap[id].width;
+	            viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.linkDataMap[id].distance;
+	            viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.linkDataMap[id].speed;
+	            viz.linkDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : viz.linkDataMap[id].labelx;
+	            viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : viz.linkDataMap[id].labely;
+	            viz.linkDataMap[id].sourcepoint = isFromLink && opts.hasOwnProperty("fromside") ? opts.fromside : viz.linkDataMap[id].sourcepoint;
+	            viz.linkDataMap[id].targetpoint = isToLink && opts.hasOwnProperty("toside") ? opts.toside : viz.linkDataMap[id].targetpoint;
+	            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") ? opts.tooltip : viz.linkDataMap[id].tooltip;
+	            viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : viz.linkDataMap[id].label;
 	        },
 
 	        // Add hander for dragging. Anything dragged will get a fixed position
@@ -318,13 +332,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                return;
 	            }
 	            // calculate distance between two points
-	            var distance = Math.sqrt(Math.pow((link_details.target.fx || link_details.target.x) - (link_details.source.fx || link_details.source.x), 2) + 
-	                                     Math.pow((link_details.target.fy || link_details.target.y) - (link_details.source.fy || link_details.source.y), 2));
-	            // Line is too short to animate anything meaningful
-	            // now that there are attachment points this is not accurate
-	            //if (distance < (link_details.source.radius + link_details.target.radius)) {
-	            //    return;
-	            //} 
+	            var distance = Math.sqrt(Math.pow((link_details.tx) - (link_details.sx), 2) + 
+	                                     Math.pow((link_details.ty) - (link_details.sy), 2));
+
 	            // The duration needs to also consider the length of the line (ms per pixel)
 	            var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
 	            // add some jitter to the starting position
@@ -353,14 +363,16 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var jitter1 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
 	            var jitter2 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
 	            if (viz.config.renderer === "canvas") {
-	                viz.activeParticles.push({
-	                    sx: (jitter1 + link_details.source.x),
-	                    sy: (jitter2 + link_details.source.y),
-	                    tx: (jitter1 + link_details.target.x),
-	                    ty: (jitter2 + link_details.target.y),
-	                    color: viz.particleTypes[particletype],
-	                    duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
-	                });
+	                if (link_details.hasOwnProperty("sx")) {
+	                    viz.activeParticles.push({
+	                        sx: (jitter1 + link_details.sx),
+	                        sy: (jitter2 + link_details.sy),
+	                        tx: (jitter1 + link_details.tx),
+	                        ty: (jitter2 + link_details.ty),
+	                        color: viz.particleTypes[particletype],
+	                        duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
+	                    });
+	                }
 	            } else {
 	                viz.particleGroup.append("circle")
 	                    .attr("cx", (jitter1 + link_details.source.x))
@@ -476,6 +488,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var invalidRows = 0;
 	            var nodeOrder = 1;
 	            var nodesLoose = {};
+	            var pathParts;
+	            var i, j, k, l;
 
 	            // Dont draw unless this is a real element under body
 	            if (! viz.$container_wrap.parents().is("body")) {
@@ -511,15 +525,24 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }
 
 	            // loop through data
-	            for (var l = 0; l < viz.data.results.length; l++) {
+	            for (l = 0; l < viz.data.results.length; l++) {
 	                // If it has "from" and "to" its a link (edge)
 	                if (viz.data.results[l].hasOwnProperty("from") && viz.data.results[l].hasOwnProperty("to") && viz.data.results[l].from !== "" && viz.data.results[l].to !== "") {
 	                    nodesLoose[viz.data.results[l].from] = nodeOrder++;
 	                    nodesLoose[viz.data.results[l].to] = nodeOrder++;
-	                    viz.newLink(viz.data.results[l]);
+	                    viz.newLink(viz.data.results[l].from, viz.data.results[l].to, viz.data.results[l], true, true);
 	                // If it doesnt have a "from" and a "to" but it has a "node" then its a node row
 	                } else if (viz.data.results[l].hasOwnProperty("node") && viz.data.results[l].node !== "") {
 	                    viz.newNode(viz.data.results[l].node, viz.data.results[l], nodeOrder++);
+	                // Can also be a path
+	                } else if (viz.data.results[l].hasOwnProperty("path") && viz.data.results[l].path !== "") {
+	                    pathParts = viz.data.results[l].path.split("---");
+	                    for (j = 0; j < pathParts.length; j++) {
+	                        nodesLoose[pathParts[j]] = nodeOrder++;
+	                        if (j < (pathParts.length - 1)) {
+	                            viz.newLink(pathParts[j], pathParts[j+1], viz.data.results[l], (j === 0), ((j + 2) === pathParts.length));
+	                        }
+	                    }
 	                } else {
 	                    invalidRows++;
 	                }
@@ -533,7 +556,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }
 
 	            // Determine what nodes are to be removed
-	            for (var j = viz.nodeData.length - 1; j >= 0 ; j--){
+	            for (j = viz.nodeData.length - 1; j >= 0 ; j--){
 	                if (viz.drawIteration !== viz.nodeData[j].drawIteration) {
 	                    delete viz.nodeDataMap[viz.nodeData[j].id];
 	                    viz.nodeData.splice(j, 1);
@@ -542,8 +565,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            // count how many particles there are in total and determine attachment points
 	            viz.totalParticles = 0;
-	            for (var k = viz.linkData.length - 1; k >= 0 ; k--) {
-	                viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
+	            for (k = viz.linkData.length - 1; k >= 0 ; k--) {
 	                if (viz.drawIteration !== viz.linkData[k].drawIteration) {
 	                    // link has been removed, stop particles 
 	                    viz.removeParticles(viz.linkData[k]);
@@ -551,6 +573,16 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    viz.linkData.splice(k, 1);
 	                    continue;
 	                }
+	                var defaultLabel = (viz.linkData[k].good > 0 ? "Good: " + viz.linkData[k].good : "") + 
+	                    (viz.linkData[k].warn > 0 ? " Warn: " + viz.linkData[k].warn : "") + 
+	                    (viz.linkData[k].error > 0 ? " Error: " + viz.linkData[k].error : "");
+	                if (viz.linkData[k].tooltip === null) {
+	                    viz.linkData[k].tooltip = "[" + viz.linkData[k].source + "] to [" + viz.linkData[k].target + "]: " + defaultLabel;
+	                }
+	                if (viz.linkData[k].label === null) {
+	                    viz.linkData[k].label = defaultLabel;
+	                }
+	                viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
 
 	                // determine attachment points
 	                viz.linkData[k].sx_mod = 0;
@@ -780,7 +812,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .call(function(selection){
 	                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
 	                        .append("i")
-	                        .attr("class", "flow_map_viz-nodeicon");
+	                        .attr("class", "flow_map_viz-nodeicon")
+	                        .style("-webkit-text-stroke-width", viz.config.node_border_width + "px");
 	                    selection
 	                        .append("div")
 	                        .attr("class", "flow_map_viz-nodelabel")
@@ -827,6 +860,14 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon; })
 	                        .style("font-size", function(d){ return d.height + "px"; })
 	                        .style("color", function(d){ return d.color; })
+	                        .style("-webkit-text-stroke-color", function(d){ 
+	                            if (viz.config.node_border_mode === "darker1") {
+	                                return tinycolor(d.color).darken(10).toString();
+	                            } else if (viz.config.node_border_mode === "darker2") {
+	                                return tinycolor(d.color).darken(20).toString();
+	                            }
+	                            return viz.config.node_border_color;
+	                        })
 	                        .style("text-shadow",  function(d){ return viz.getShadow(d); });
 
 	                });
