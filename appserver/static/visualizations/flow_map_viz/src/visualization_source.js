@@ -1,6 +1,4 @@
 // TODO fix teleporting items
-// TODO add zoom 
-// TODO set nicer defaults
 // TODO add arrow mode
 // TODO add drilldowns/tokens
 // highlight link/nodes/labels on hover.
@@ -65,8 +63,8 @@ function(
                 particle_size: "3",
                 particle_blur: "0",
 
-                node_width: "150",
-                node_height: "80",
+                node_width: "120",
+                node_height: "40",
                 node_bg_color: "#cccccc",
                 node_border_color: "#000000",
                 node_border_mode: "darker1",
@@ -285,7 +283,7 @@ function(
                         color: viz.particleTypes[particletype],
                         duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
                     });
-                    //console.log("Total particles:", viz.activeParticles.length);
+                    console.log("Total particles:", viz.activeParticles.length);
                 }
             }
         },
@@ -517,6 +515,7 @@ function(
             } else {
                 viz.particleMultiplier = viz.particleMax / viz.totalParticles;
             }
+            console.log("particle multipler is ", viz.particleMultiplier);
 
             // Sort the lists back into the order it arrived
             viz.nodeData.sort(function(a,b){
@@ -862,6 +861,16 @@ function(
         // Override to respond to re-sizing events
         reflow: function() {
             this.scheduleDraw();
+        },
+
+        // Called when removed. This happens if using the viz not in a dashboard, and you rerun search
+        remove: function(){
+            var viz = this;
+            viz.stopAllParticles();
+            if (viz.hasOwnProperty("timer")) {
+                viz.timer.stop(); 
+            }
+            viz.$container_wrap.empty();
         },
 
         // Search data params
