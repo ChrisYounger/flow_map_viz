@@ -12,7 +12,6 @@
     box-sizing: border-box;
 }
 .flow_map_viz-container-svg {
-    /*margin: 10px auto;*/
     display: block;
 }
 .flow_map_viz-tooltip {
@@ -36,47 +35,51 @@
     color: #818d99;
     line-height: 3;
 }
-
 .flow_map_viz-copylink {
     position: absolute;
-    top:-1px;
-    left:40px;
-    color:#5c6773;
+    top: 0px;
+    left: 30px;
     cursor: pointer;
     opacity: 0;
-    background-color: white;
     padding: 5px;
     border-radius: 2px;
 }
-.flow_map_viz-copylink:hover {
-  background-color:#eee;
+.dashboard.edit-mode .flow_map_viz-copylink {
+    left: auto;
+    right: 4px;
 }
 .dashboard.view-mode .flow_map_viz-copylink {
     display: none;
+}
+.flow_map_viz-nodeset {
+  padding: 5px;
+  cursor: grab;
+}
+.dashboard.view-mode .flow_map_viz-nodeset {
+  cursor: pointer;
 }
 .flow_map_viz-nodeset > div,
 .flow_map_viz-nodeset > i {
   position: absolute;
 }
-
 .flow_map_viz-nodelabels > div {
-    /*pointer-events: none;*/
     position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
 }
 .flow_map_viz-linklabels > div {
-    /*pointer-events: none;*/
     position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
     width: 200px;
-    /* display: flex;
-    align-items: center;
-    justify-content: center; */
 }
+
+
+
 
 
 /* To load in Font Awesome, need to do a search and replace on all ".fa" to be namespaced correctly. Also need to rename and keyframes. Finally the fonts at the bottom need to ahve their paths changed. */

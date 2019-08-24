@@ -1,10 +1,11 @@
 // TODO fix teleporting items
-// TODO add arrow mode
-// TODO add drilldowns/tokens
-// highlight link/nodes/labels on hover.
-// remove svg renderer - convert it to arrows
-// addon bugs in customer environment
+// Future: Add arrow mode
+// Future: highlight link/nodes/labels on hover.
+// TODO addon bugs in customer environment
 // check all nan edge cases
+// Fix formatter 7.3 issues
+// Doco
+// savedsearch.conf etc
 
 define([
     'api/SplunkVisualizationBase',
@@ -41,7 +42,7 @@ function(
                 node_center_force: "0.1",
                 positions: "",
                 labels_as_html: "no",
-                background_mode: "transparent",
+                background_mode: "custom",
                 background_color: "#ffffff",
                 // At some point we could potentially change to webgl shader: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
                 renderer: "canvas",
@@ -55,7 +56,7 @@ function(
                 link_text_size: "10",
                 line_style: "solid",
 
-                particle_limit: "1000",
+                particle_limit: "60",
                 particle_good_color: "#1a9035",
                 particle_warn_color: "#d16f18",
                 particle_error_color: "#b22b32",
@@ -64,7 +65,7 @@ function(
                 particle_blur: "0",
 
                 node_width: "120",
-                node_height: "40",
+                node_height: "30",
                 node_bg_color: "#cccccc",
                 node_border_color: "#000000",
                 node_border_mode: "darker1",
@@ -89,6 +90,11 @@ function(
             };
 
             viz.data = data;
+
+            $(window).off("resize.flow_map_viz").on("resize.flow_map_viz", function () {
+                viz.scheduleDraw();
+            });
+
             viz.scheduleDraw();
         },
 
@@ -252,6 +258,7 @@ function(
             var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
             base_jitter = Number(base_jitter);
             var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
+            console.log("dispatch delay is ", particle_dispatch_delay, "ms");
             // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
             link_details.timeouts[particletype] = setTimeout(function(){
                 viz.doParticle(link_details, particletype, base_time, base_jitter);
@@ -478,7 +485,7 @@ function(
                 if (viz.linkData[k].label === null) {
                     viz.linkData[k].label = defaultLabel;
                 }
-                viz.totalParticles = viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error;
+                viz.totalParticles = Math.max(viz.totalParticles, (viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error));
 
                 // determine attachment points
                 viz.linkData[k].sx_mod = 0;
@@ -505,7 +512,7 @@ function(
                 }
             }
 
-            viz.particleMax = viz.config.particle_limit / 300;
+            viz.particleMax = Number(viz.config.particle_limit);
             // If zero, hide all particles
             if (viz.particleMax === 0 || viz.totalParticles === 0) {
                 viz.particleMultiplier = 0;
@@ -515,6 +522,7 @@ function(
             } else {
                 viz.particleMultiplier = viz.particleMax / viz.totalParticles;
             }
+            console.log("total particles ", viz.totalParticles);
             console.log("particle multipler is ", viz.particleMultiplier);
 
             // Sort the lists back into the order it arrived
@@ -586,7 +594,7 @@ function(
                 viz.$container_wrap.append(viz.linkLabelGroup.node(), viz.nodeGroup.node());
 
                 // Add a button that allows copying the current positions to the clipboard
-                viz.positionsButton = $("<span class='flow_map_viz-copylink'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
+                viz.positionsButton = $("<span class='flow_map_viz-copylink btn-pill'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
                     .appendTo(viz.$container_wrap)
                     .on("click", function(){
                         viz.dumpPositions();
@@ -625,7 +633,8 @@ function(
                                 if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
                                 d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
                                 d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
-                                return "translate(" + (d.x - d.width / 2) + "px," + (d.y - d.height / 2) + "px)";
+                                // 5 is the padding
+                                return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
                             });
 
                         viz.linkSelection
@@ -640,7 +649,6 @@ function(
                                 var maxx = Math.max(d.sx, d.tx);
                                 var miny = Math.min(d.sy, d.ty);
                                 var maxy = Math.max(d.sy, d.ty); 
-                                // TODO is the label offsetting working?
                                 return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
                             });
                     });
@@ -692,12 +700,19 @@ function(
             viz.nodeSelection.enter()
                 .append("div")
                 .attr("class", "flow_map_viz-nodeset") 
+                // Remove fixed position on double click
                 .on("dblclick", function(d){ 
-                    // Remove fixed position on double click
                     d.fx = null;
                     d.fy = null;
                 })
                 .call(function(selection){
+                    // This element is a background behind font awesome icons. otherwise it doesnt look as 
+                    // good when you can see particles behind the icons. Has no effect when background is 
+                    // transparent
+                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+                        .append("div")
+                        .attr("class", "flow_map_viz-nodeiconbg")
+                        .style("background-color", viz.config.background_color);
                     selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
                         .append("i")
                         .attr("class", "flow_map_viz-nodeicon")
@@ -706,7 +721,34 @@ function(
                         .append("div")
                         .attr("class", "flow_map_viz-nodelabel");
                 })
-                .call(viz.drag(viz.simulation));
+                .call(viz.drag(viz.simulation))
+                .on("click", function(d){
+                    var tokens = {
+                        "flow_map_viz-label": d.label,
+                        "flow_map_viz-node": d.id,
+                    };
+                    if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
+                        tokens["click.name"] = "drilldown";
+                        tokens["click.value"] = d.drilldown;
+                        tokens["flow_map_viz-drilldown"] = d.drilldown;
+                    } else {
+                        tokens["click.name"] = "node";
+                        tokens["click.value"] = d.id;
+                    }
+                    var defaultTokenModel = splunkjs.mvc.Components.get('default');
+                    var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
+                    for (var token_name in tokens) {
+                        if (tokens.hasOwnProperty(token_name)) {
+                            console.log("Setting token $" + token_name + "$ to \"" + tokens[token_name] + "\"");
+                            if (defaultTokenModel) {
+                                defaultTokenModel.set(token_name, tokens[token_name]);
+                            }
+                            if (submittedTokenModel) {
+                                submittedTokenModel.set(token_name, tokens[token_name]);
+                            }
+                        }
+                    }
+                });
 
             // Reselect everything
             viz.nodeSelection = viz.nodeGroup
@@ -743,6 +785,12 @@ function(
                     // icon types - as font awesome icons
                     selection
                         .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+                        .select(".flow_map_viz-nodeiconbg")
+                        .style("width", function(d){ return d.height + "px"; })
+                        .style("height", function(d){ return d.height + "px"; })
+                        .style("border-radius", function(d){ return d.height + "px"; });
+                    selection
+                        .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
                         .select(".flow_map_viz-nodeicon")
                         .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon; })
                         .style("font-size", function(d){ return d.height + "px"; })
@@ -755,7 +803,7 @@ function(
                             }
                             return viz.config.node_border_color;
                         })
-                        .style("text-shadow",  function(d){ return viz.getShadow(d); });
+                        .style("text-shadow", function(d){ return viz.getShadow(d); });
 
                 });
 
@@ -770,7 +818,7 @@ function(
                 .selectAll("line")
                     .attr("stroke", function(d){ return d.color; })
                     .attr("stroke-width", function(d){ return d.width; });
-            
+
             if (viz.config.line_style === "ants") {
                 viz.linkSelection
                     .attr("stroke-linecap", "butt")
@@ -779,7 +827,7 @@ function(
                     .call(function(p) {  viz.antAnimate(p); });
             }
 
-            // Creat link labels
+            // Create link labels
             viz.linkLabelSelection = viz.linkLabelGroup
                 .selectAll("div")
                 .data(viz.linkData, function(d){ return d.id; })
@@ -790,6 +838,9 @@ function(
                 .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
                 .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
                 .attr("title", function(d) { return d.tooltip; })
+                .style("text-shadow", function(d){
+                    return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
+                })
                 .html(function(d) { return d.label; });
 
             // redo particles

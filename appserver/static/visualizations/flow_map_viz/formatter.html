@@ -1,25 +1,25 @@
 <form class="splunk-formatter-section" section-label="Nodes">
-        <splunk-control-group label="Width">
+        <splunk-control-group label="Width" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_width" value="120"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Height">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.node_height" value="40"></splunk-text-input>
+        <splunk-control-group label="Height" help="">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.node_height" value="30"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Border width">
+        <splunk-control-group label="Border width" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_border_width" value="1"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Border radius">
+        <splunk-control-group label="Border radius" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_radius" value="10"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Text size">
+        <splunk-control-group label="Text size" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_text_size" value="12"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Base color">
+        <splunk-control-group label="Base color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.node_bg_color" value="#cccccc" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -39,7 +39,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
         
-        <splunk-control-group label="Text color">
+        <splunk-control-group label="Text color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.node_text_color" value="#000000" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -59,7 +59,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Border color">
+        <splunk-control-group label="Border color" help="">
                 <splunk-select name="{{VIZ_NAMESPACE}}.node_border_mode" value="darker1" style="vertical-align:top; display:inline-block; width:90px; margin-right:10px;">
                         <option value="darker1">Base color, 10% darker</option>
                         <option value="darker2">Base color, 20% darker</option>
@@ -84,7 +84,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
         
-        <splunk-control-group label="Shadow">
+        <splunk-control-group label="Shadow" help="">
                 <splunk-select name="{{VIZ_NAMESPACE}}.node_shadow_mode" value="custom" style="vertical-align:top; display:inline-block; width:90px; margin-right:10px;">
                         <option value="disabled">No shadow</option>
                         <option value="darker1">Base color, 10% darker</option>
@@ -116,35 +116,34 @@
 
 
 <form class="splunk-formatter-section" section-label="Links">
-        <splunk-control-group label="Style">
+        <splunk-control-group label="Style" help="">
                 <splunk-radio-input name="{{VIZ_NAMESPACE}}.line_style" value="solid">
                         <option value="solid">Solid</option>
                         <option value="ants">Ants</option>
-                        <option value="arrows">Arrows</option>
                 </splunk-radio-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Speed">
+        <splunk-control-group label="Speed" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.link_speed" value="90"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Opacity">
+        <splunk-control-group label="Opacity" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.link_opacity" value="0.4"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Distance">
+        <splunk-control-group label="Distance" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.link_distance" value="200"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Width">
+        <splunk-control-group label="Width" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.link_width" value="1"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Text size">
+        <splunk-control-group label="Text size" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.link_text_size" value="10"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Color">
+        <splunk-control-group label="Color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.link_color" value="#cccccc" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -164,7 +163,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Label color">
+        <splunk-control-group label="Label color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.link_label_color" value="#000000" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -182,7 +181,7 @@
                         <splunk-color>#0178c7</splunk-color>
                         <splunk-color>#ecbc1b</splunk-color>
                 </splunk-color-picker>
-        </splunk-control-group>        
+        </splunk-control-group>
 </form>
 
 
@@ -190,23 +189,23 @@
 
 <form class="splunk-formatter-section" section-label="Particles">
 
-        <splunk-control-group label="Spread">
+        <splunk-control-group label="Spread" help="Set -1 to spread to the link width">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_spread" value="5"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Size">
+        <splunk-control-group label="Size" help="">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_size" value="3"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Blur">
+        <splunk-control-group label="Blur" help="CPU intensive">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_blur" value="0"></splunk-text-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Limit">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_limit" value="1000"></splunk-text-input>
+        <splunk-control-group label="Autoscale to" help="Particles/sec per link. -1 to disable. Max of 60.">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_limit" value="60"></splunk-text-input> <!-- limit of particles created per sec per link. set -1 to disable autoscaling. max 60 particles/sec-->
         </splunk-control-group>
 
-        <splunk-control-group label="Good color">
+        <splunk-control-group label="Good color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.particle_good_color" value="#1a9035" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -226,7 +225,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Warn color">
+        <splunk-control-group label="Warn color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.particle_warn_color" value="#d16f18" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -246,7 +245,7 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Error color">
+        <splunk-control-group label="Error color" help="">
                 <splunk-color-picker name="{{VIZ_NAMESPACE}}.particle_error_color" value="#b22b32" type="splunkCategorical" style="vertical-align:top; display:inline-block;">
                         <splunk-color>#ffffff</splunk-color>
                         <splunk-color>#C6C6C6</splunk-color>
@@ -268,12 +267,12 @@
 </form>
 
 <form class="splunk-formatter-section" section-label="Advanced">
-        <splunk-control-group label="Positions">
+        <splunk-control-group label="Positions" help="Paste copied string here">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.positions" value=""></splunk-text-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Background color">
-                <splunk-select name="{{VIZ_NAMESPACE}}.background_mode" value="transparent" style="vertical-align:top; display:inline-block; width:90px; margin-right:10px;">
+        <splunk-control-group label="Background color" help="">
+                <splunk-select name="{{VIZ_NAMESPACE}}.background_mode" value="custom" style="vertical-align:top; display:inline-block; width:90px; margin-right:10px;">
                         <option value="transparent">Transparent</option>
                         <option value="custom">Custom</option>
                 </splunk-select>
@@ -296,29 +295,29 @@
                 </splunk-color-picker>
         </splunk-control-group>
 
-        <splunk-control-group label="Allow HTML labels">
+        <splunk-control-group label="HTML in labels" help="">
                 <splunk-radio-input name="{{VIZ_NAMESPACE}}.labels_as_html" value="no">
                         <option value="yes">Yes</option>
                         <option value="no">No</option>
                 </splunk-radio-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Stop when backgrounded">
+        <splunk-control-group label="Stop when backgrounded" help="">
                 <splunk-radio-input name="{{VIZ_NAMESPACE}}.stop_when_not_visible" value="yes">
                         <option value="yes">Yes</option>
                         <option value="no">No</option>
                 </splunk-radio-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Node limit">
+        <splunk-control-group label="Node limit" help="Max records safety latch">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.maxnodes" value="100"></splunk-text-input>
         </splunk-control-group> 
 
-        <splunk-control-group label="Repel force">
+        <splunk-control-group label="Repel force" help="Force betwen nodes">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_repel_force" value="1000"></splunk-text-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Center force">
+        <splunk-control-group label="Center force" help="Force moving items to the center">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.node_center_force" value="0.1"></splunk-text-input>
         </splunk-control-group>
 
@@ -329,10 +328,11 @@
 <form class="splunk-formatter-section" section-label="Help">
         <splunk-control-group label=" ">
                 <div style="margin-top:40px 10px 10px 0">
-                        <div>Example queries:</div>
-                        <div style="margin-top:10px;"><code>... | table label labelx labely height width color radius opacity x y icon</code></div>
-                        <div>or</div>
-                        <div><code>... | from to good warn error color width distance speed tooltip label labeloffset</code></div>
+                        <div>Known fields:</div>
+                        <div style="margin-top:10px;">Links must have <code>from</code> and <code>to</code>; or <code>path</code> (delimited by "---")</div>
+                        <div>Optional link fields <code>good</code> <code>warn</code> <code>error</code> <code>color</code> <code>width</code> <code>distance</code> <code>speed</code> <code>labelx</code> <code>labely</code> <code>fromside</code> <code>toside</code> <code>tooltip</code> <code>label</code></div>
+                        <div>Node rows are optional.</div>
+                        <div>Node fields: <code>node</code> <code>label</code> <code>labelx</code> <code>labely</code> <code>height</code> <code>width</code> <code>color</code> <code>radius</code> <code>opacity</code> <code>x</code> <code>y</code> <code>icon</code></div>
                         <div style="margin-top:30px;"><a href="/app/flow_map_viz/documentation" target="_blank">Examples and Documentation</a></div>
                         <div style="margin-top:40px;">By Chris Younger - <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds" target="_blank">My other apps</a></div>
                 </div> 
