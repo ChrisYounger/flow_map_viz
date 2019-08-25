@@ -44,14 +44,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO fix teleporting items
-	// Future: Add arrow mode
-	// Future: highlight link/nodes/labels on hover.
-	// TODO addon bugs in customer environment
-	// check all nan edge cases
-	// Fix formatter 7.3 issues
-	// Doco
-	// savedsearch.conf etc
+	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// Future: Add arrow mode
+	// Future: highlight link/nodes/labels on hover (dim particles and other links).
+	// Future: Add webgl shader option: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
+	// Future: New node field fromoffset and tooffset - must be used in conjunction with fromside and toside
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 	    __webpack_require__(1),
@@ -86,14 +82,14 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                node_repel_force: "1000",
 	                node_center_force: "0.1",
 	                positions: "",
+	                course_positions: "yes",
 	                labels_as_html: "no",
 	                background_mode: "custom",
 	                background_color: "#ffffff",
-	                // At some point we could potentially change to webgl shader: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
 	                renderer: "canvas",
 
 	                link_speed: "90",
-	                link_opacity: "0.4",
+	                link_opacity: "0.5",
 	                link_distance: "200",
 	                link_width: "1",
 	                link_color: "#cccccc",
@@ -119,7 +115,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                node_shadow_color: "#000000",
 	                node_text_color: "#000000",
 	                node_text_size: "12",
-	                node_radius: 10,
+	                node_radius: "2",
 	            };
 	            // Override defaults with selected items from the UI
 	            for (var opt in config) {
@@ -178,6 +174,33 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.nodeDataMap[id].xperc = opts.hasOwnProperty("x") ? opts.x : "";
 	            viz.nodeDataMap[id].yperc = opts.hasOwnProperty("y") ? opts.y : "";
 	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
+
+	            // Check numeric values are actually numeric
+	            if (isNaN(viz.nodeDataMap[id].labelx)) {
+	                viz.nodeDataMap[id].labelx = "0";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].labely)) {
+	                viz.nodeDataMap[id].labely = "0";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].height)) {
+	                viz.nodeDataMap[id].height = 30;
+	            }
+	            if (isNaN(viz.nodeDataMap[id].width)) {
+	                viz.nodeDataMap[id].width = 120;
+	            }
+	            if (isNaN(viz.nodeDataMap[id].rx)) {
+	                viz.nodeDataMap[id].rx = "2";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].opacity)) {
+	                viz.nodeDataMap[id].opacity = "";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].xperc)) {
+	                viz.nodeDataMap[id].xperc = "";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].yperc)) {
+	                viz.nodeDataMap[id].yperc = "";
+	            }
+
 	            viz.nodeDataMap[id].radius = Math.min(viz.nodeDataMap[id].height/2, viz.nodeDataMap[id].width/2) + Number(viz.config.node_border_width) + 1;
 	        },
 
@@ -230,6 +253,23 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.linkDataMap[id].targetpoint = isToLink && opts.hasOwnProperty("toside") ? opts.toside : viz.linkDataMap[id].targetpoint;
 	            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") ? opts.tooltip : viz.linkDataMap[id].tooltip;
 	            viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : viz.linkDataMap[id].label;
+
+	            // Check numeric values are actually numeric
+	            if (isNaN(viz.linkDataMap[id].width)) {
+	                viz.linkDataMap[id].width = "1";
+	            }
+	            if (isNaN(viz.linkDataMap[id].distance)) {
+	                viz.linkDataMap[id].distance = "200";
+	            }
+	            if (isNaN(viz.linkDataMap[id].speed)) {
+	                viz.linkDataMap[id].speed = "90";
+	            }
+	            if (isNaN(viz.linkDataMap[id].labelx)) {
+	                viz.linkDataMap[id].labelx = "0";
+	            }
+	            if (isNaN(viz.linkDataMap[id].labely)) {
+	                viz.linkDataMap[id].labely = "0";
+	            }
 	        },
 
 	        // Add hander for dragging. Anything dragged will get a fixed position
@@ -244,12 +284,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    d.fy = d.y;
 	                })
 	                .on("drag", function(d) {
-	                    d.fx = Math.round(d3.event.x / viz.config.containerWidth * 100) / 100 * viz.config.containerWidth;
-	                    d.fy = Math.round(d3.event.y / viz.config.containerHeight * 100) / 100 * viz.config.containerHeight;
+	                    d.fx = Math.round(d3.event.x / viz.config.containerWidth * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerWidth;
+	                    d.fy = Math.round(d3.event.y / viz.config.containerHeight * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerHeight;
 	                })
 	                .on("end", function(d) {
 	                    viz.isDragging = false;
-	                    viz.positions[d.id] = "" + Math.round(d.fx / viz.config.containerWidth * 100) + "," + Math.round(d.fy / viz.config.containerHeight * 100);
+	                    viz.positions[d.id] = "" + (Math.round(d.fx / viz.config.containerWidth * viz.positionMultiplier) / (viz.positionMultiplier / 100)) + "," + (Math.round(d.fy / viz.config.containerHeight * viz.positionMultiplier) / (viz.positionMultiplier / 100));
 	                    // restart particles again
 	                    clearTimeout(viz.startParticlesTimeout);
 	                    viz.startParticlesTimeout = setTimeout(function(){
@@ -261,6 +301,35 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    viz.positionsButtonTimeout = setTimeout(function(){
 	                        viz.positionsButton.css("opacity",0);
 	                    }, 10000);
+	                });
+	        },
+
+	        updatePositions: function() {
+	            var viz = this;
+	            // When stuff is dragged, or when the forces are being simulated, move items
+	            viz.nodeSelection
+	                .style("transform", function(d) {
+	                    // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
+	                    if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
+	                    d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
+	                    d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
+	                    // 5 is the padding
+	                    return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
+	                });
+
+	            viz.linkSelection
+	                .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
+	                .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; }) 
+	                .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
+	                .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; }); 
+
+	            viz.linkLabelSelection
+	                .style("transform", function(d) {
+	                    var minx = Math.min(d.sx, d.tx);
+	                    var maxx = Math.max(d.sx, d.tx);
+	                    var miny = Math.min(d.sy, d.ty);
+	                    var maxy = Math.max(d.sy, d.ty); 
+	                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
 	                });
 	        },
 
@@ -280,7 +349,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }
 	            for (var i = 0; i < viz.linkData.length; i++) {
 	                for (var particletype in viz.particleTypes) {
-	                    viz.startParticleGroup(viz.linkData[i], particletype);
+	                    if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                        viz.startParticleGroup(viz.linkData[i], particletype);
+	                    }
 	                }
 	            }
 	        },
@@ -303,7 +374,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
 	            base_jitter = Number(base_jitter);
 	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-	            console.log("dispatch delay is ", particle_dispatch_delay, "ms");
 	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
 	            link_details.timeouts[particletype] = setTimeout(function(){
 	                viz.doParticle(link_details, particletype, base_time, base_jitter);
@@ -335,7 +405,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        color: viz.particleTypes[particletype],
 	                        duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
 	                    });
-	                    console.log("Total particles:", viz.activeParticles.length);
 	                }
 	            }
 	        },
@@ -347,7 +416,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var i,x,y,p,t;
 	            var deletes = [];
 	            viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
-	            //console.log("total particles", viz.activeParticles.length);
 	            for (i = 0; i < viz.activeParticles.length; i++) {
 	                p = viz.activeParticles[i];
 	                if (! p.hasOwnProperty("start")) {
@@ -452,7 +520,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.config.containerWidth = viz.$container_wrap.width();
 	            var serialised = JSON.stringify(viz.config);
 	            if (viz.alreadyDrawn !== serialised) {
-	                console.log("conf changed", serialised, viz.alreadyDrawn);
+	                //console.log("conf changed", serialised, viz.alreadyDrawn);
 	                viz.doRemove();
 	                viz.alreadyDrawn = serialised;
 	            }
@@ -492,6 +560,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                        }
 	                    }
 	                } else {
+	                    console.log("Skipping invalid row:", JSON.stringify(viz.data.results[l]));
 	                    invalidRows++;
 	                }
 	            }
@@ -567,8 +636,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            } else {
 	                viz.particleMultiplier = viz.particleMax / viz.totalParticles;
 	            }
-	            console.log("total particles ", viz.totalParticles);
-	            console.log("particle multipler is ", viz.particleMultiplier);
 
 	            // Sort the lists back into the order it arrived
 	            viz.nodeData.sort(function(a,b){
@@ -593,10 +660,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                return;
 	            }
 
-	            //delete viz.isFinishedDrawing;
-
 	            // Add SVG to the page
 	            if (viz.drawIteration === 1) {
+	                if (viz.config.course_positions === "yes") {
+	                    viz.positionMultiplier = 100;
+	                } else {
+	                    viz.positionMultiplier = 1000;
+	                }
 	                viz.svg = d3.create("svg")
 	                    .attr("class", "flow_map_viz-svg")
 	                    .attr("width", viz.config.containerWidth + "px")
@@ -627,6 +697,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                // Add groups in the correct order for layering
 	                viz.linkGroup = viz.svg.append("g")
 	                    .attr("stroke-opacity", viz.config.link_opacity)
+	                    .attr("stroke", "#cccccc") // set a default in case user sets an invalid color
 	                    .attr("class", "flow_map_viz-links");
 	                viz.linkLabelGroup = d3.create("div")
 	                    .style("font", viz.config.link_text_size + "px sans-serif")
@@ -669,33 +740,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    .force('y',  forceY)
 	                    .alphaTarget(0)
 	                    .on("tick", function() {
-	                        //if (! viz.hasOwnProperty("isFinishedDrawing") || (viz.isFinishedDrawing + 100) > (new Date).getTime()) { console.log("skip"); return; }
-	                        //console.log("force tick");
-	                        // When stuff is dragged, or when the forces are being simulated, move items
-	                        viz.nodeSelection
-	                            .style("transform", function(d) {
-	                                // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
-	                                if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
-	                                d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
-	                                d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
-	                                // 5 is the padding
-	                                return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
-	                            });
-
-	                        viz.linkSelection
-	                            .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
-	                            .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; }) 
-	                            .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
-	                            .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; }); 
-
-	                        viz.linkLabelSelection
-	                            .style("transform", function(d) {
-	                                var minx = Math.min(d.sx, d.tx);
-	                                var maxx = Math.max(d.sx, d.tx);
-	                                var miny = Math.min(d.sy, d.ty);
-	                                var maxy = Math.max(d.sy, d.ty); 
-	                                return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
-	                            });
+	                        viz.updatePositions();
 	                    });
 	            }
 
@@ -714,7 +759,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    }
 	                }
 	            }
-	            for (var i = 0; i < viz.nodeData.length; i++){
+	            for (i = 0; i < viz.nodeData.length; i++){
 	                // If the dashboard has updated the fx might already be set
 	                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
 	                    viz.nodeData[i].isPositioned = true;
@@ -874,19 +919,17 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            // Create link labels
 	            viz.linkLabelSelection = viz.linkLabelGroup
-	                .selectAll("div")
+	                .selectAll(".flow_map_viz-linklabel")
 	                .data(viz.linkData, function(d){ return d.id; })
-	                .join("div");
-
-	            viz.linkLabelSelection = viz.linkLabelGroup
-	                .selectAll("div")
-	                .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
-	                .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
-	                .attr("title", function(d) { return d.tooltip; })
-	                .style("text-shadow", function(d){
-	                    return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
-	                })
-	                .html(function(d) { return d.label; });
+	                .join("div")
+	                    .attr("class", "flow_map_viz-linklabel")
+	                    .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
+	                    .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
+	                    .attr("title", function(d) { return d.tooltip; })
+	                    .style("text-shadow", function(d){
+	                        return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
+	                    })
+	                    .html(function(d) { return d.label; });
 
 	            // redo particles
 	            clearTimeout(viz.startParticlesTimeout);
@@ -894,11 +937,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.startParticles();
 	            }, viz.delayUntilParticles);
 
-	            //viz.isFinishedDrawing = (new Date).getTime();
 
 	            // trigger force layout
 	            viz.simulation.nodes(viz.nodeData);
 	            viz.simulation.force("link").links(viz.linkData);
+	            viz.updatePositions();
 	            viz.simulation.alpha(0.3).restart();
 	        },
 
