@@ -47,7 +47,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// Future: Add arrow mode
 	// Future: highlight link/nodes/labels on hover (dim particles and other links).
 	// Future: Add webgl shader option: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
-	// Future: New node field fromoffset and tooffset - must be used in conjunction with fromside and toside
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 	    __webpack_require__(1),

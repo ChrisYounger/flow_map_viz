@@ -94,7 +94,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
   <row  depends="$showtab1$">
     <panel>
       <html>
-<div id="details"><p>A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizcerial by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.</p>
+<div id="details"><p>A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizceral by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.</p>
 <p>Copyright (C) 2019 Chris Younger. I am a Splunk Professional Services consultant working for JDS Australia, in Brisbane Australia.</p>
 <p><a href="https://github.com/ChrisYounger/flow_map_viz">Source code</a> | <a href="https://splunkbase.splunk.com/app/4657/">Splunkbase</a> |  <a href="https://answers.splunk.com/app/questions/4657.html">Questions, Bugs or Suggestions</a> | <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds">My Splunk apps</a></p>
 <p><br /><br /><br /></p>
@@ -254,7 +254,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 <img alt="" src="/static/app/flow_map_viz/positioning1.png" /><br />
 <br /><br /><br /><br />
 <img alt="" src="/static/app/flow_map_viz/positioning2.png" /><br /><br />
-<br /><br /><br /></p>
+<br />Double click a node disable its manual positioning.<br /><br /></p>
 <h1>Field reference</h1>
 <h2>Fields for <strong>link</strong> rows:</h2>
 <table class="table" style="width:900px; min-width:unset; max-width:unset;">

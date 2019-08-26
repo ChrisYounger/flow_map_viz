@@ -1,6 +1,6 @@
 # Flow Map Viz
 
-A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizcerial by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.
+A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizceral by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.
 
 Copyright (C) 2019 Chris Younger. I am a Splunk Professional Services consultant working for JDS Australia, in Brisbane Australia.
 
