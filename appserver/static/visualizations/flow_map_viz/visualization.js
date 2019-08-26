@@ -82,7 +82,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                node_repel_force: "1000",
 	                node_center_force: "0.1",
 	                positions: "",
-	                course_positions: "yes",
+	                coarse_positions: "yes",
 	                labels_as_html: "no",
 	                background_mode: "custom",
 	                background_color: "#ffffff",
@@ -171,8 +171,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.nodeDataMap[id].color = opts.hasOwnProperty("color") && opts.color !== "" ? opts.color : viz.config.node_bg_color;
 	            viz.nodeDataMap[id].rx = opts.hasOwnProperty("radius") && opts.radius !== "" ? opts.radius : viz.config.node_radius;
 	            viz.nodeDataMap[id].opacity = opts.hasOwnProperty("opacity") ? opts.opacity : "";
-	            viz.nodeDataMap[id].xperc = opts.hasOwnProperty("x") ? opts.x : "";
-	            viz.nodeDataMap[id].yperc = opts.hasOwnProperty("y") ? opts.y : "";
+	            viz.nodeDataMap[id].position = opts.hasOwnProperty("position") ? opts.position : "";
 	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
 
 	            // Check numeric values are actually numeric
@@ -505,7 +504,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var nodeOrder = 1;
 	            var nodesLoose = {};
 	            var pathParts;
-	            var i, j, k, l;
+	            var i, j, k, l, attach;
 
 	            // Dont draw unless this is a real element under body
 	            if (! viz.$container_wrap.parents().is("body")) {
@@ -601,28 +600,63 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                }
 	                viz.totalParticles = Math.max(viz.totalParticles, (viz.linkData[k].good + viz.linkData[k].warn + viz.linkData[k].error));
 
-	                // determine attachment points
+	                // determine attachment point for source node
 	                viz.linkData[k].sx_mod = 0;
 	                viz.linkData[k].sy_mod = 0;
-	                viz.linkData[k].tx_mod = 0;
-	                viz.linkData[k].ty_mod = 0;
-	                if (viz.linkData[k].sourcepoint === "left") {
+	                attach = viz.linkData[k].sourcepoint.split(/([\+\-])/);
+	                if (attach[0] === "left") { 
 	                    viz.linkData[k].sx_mod = viz.nodeDataMap[viz.linkData[k].source].width / 2 * -1;
-	                } else if (viz.linkData[k].sourcepoint === "right") {
+	                } else if (attach[0] === "right") {
 	                    viz.linkData[k].sx_mod = viz.nodeDataMap[viz.linkData[k].source].width / 2;
-	                } else if (viz.linkData[k].sourcepoint === "top") {
+	                } else if (attach[0] === "top") {
 	                    viz.linkData[k].sy_mod = viz.nodeDataMap[viz.linkData[k].source].height / 2 * -1;
-	                } else if (viz.linkData[k].sourcepoint === "bottom") {
+	                } else if (attach[0] === "bottom") {
 	                    viz.linkData[k].sy_mod = viz.nodeDataMap[viz.linkData[k].source].height / 2;
 	                }
-	                if (viz.linkData[k].targetpoint === "left") {
+	                if (attach.length === 3 && ! isNaN(attach[2])) {
+	                    if (attach[0] === "left" || attach[0] === "right") {
+	                        if (attach[1] === "+") {
+	                            viz.linkData[k].sy_mod = Number(attach[2]);
+	                        } else {
+	                            viz.linkData[k].sy_mod = (Number(attach[2]) * -1);
+	                        }
+	                    }
+	                    if (attach[0] === "top" || attach[0] === "bottom") {
+	                        if (attach[1] === "+") {
+	                            viz.linkData[k].sx_mod = Number(attach[2]);
+	                        } else {
+	                            viz.linkData[k].sx_mod = (Number(attach[2]) * -1);
+	                        }
+	                    }
+	                }
+	                // determine attachment point for target node
+	                viz.linkData[k].tx_mod = 0;
+	                viz.linkData[k].ty_mod = 0;
+	                attach = viz.linkData[k].targetpoint.split(/([\+\-])/);
+	                if (attach[0] === "left") {
 	                    viz.linkData[k].tx_mod = viz.nodeDataMap[viz.linkData[k].target].width / 2 * -1;
-	                } else if (viz.linkData[k].targetpoint === "right") {
+	                } else if (attach[0] === "right") {
 	                    viz.linkData[k].tx_mod = viz.nodeDataMap[viz.linkData[k].target].width / 2;
-	                } else if (viz.linkData[k].targetpoint === "top") {
+	                } else if (attach[0] === "top") {
 	                    viz.linkData[k].ty_mod = viz.nodeDataMap[viz.linkData[k].target].height / 2 * -1;
-	                } else if (viz.linkData[k].targetpoint === "bottom") {
+	                } else if (attach[0] === "bottom") {
 	                    viz.linkData[k].ty_mod = viz.nodeDataMap[viz.linkData[k].target].height / 2;
+	                }
+	                if (attach.length === 3 && ! isNaN(attach[2])) {
+	                    if (attach[0] === "left" || attach[0] === "right") {
+	                        if (attach[1] === "+") {
+	                            viz.linkData[k].ty_mod = Number(attach[2]);
+	                        } else {
+	                            viz.linkData[k].ty_mod = (Number(attach[2]) * -1);
+	                        }
+	                    }
+	                    if (attach[0] === "top" || attach[0] === "bottom") {
+	                        if (attach[1] === "+") {
+	                            viz.linkData[k].tx_mod = Number(attach[2]);
+	                        } else {
+	                            viz.linkData[k].tx_mod = (Number(attach[2]) * -1);
+	                        }
+	                    }
 	                }
 	            }
 
@@ -662,7 +696,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            // Add SVG to the page
 	            if (viz.drawIteration === 1) {
-	                if (viz.config.course_positions === "yes") {
+	                if (viz.config.coarse_positions === "yes") {
 	                    viz.positionMultiplier = 100;
 	                } else {
 	                    viz.positionMultiplier = 1000;
@@ -748,7 +782,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            //viz.simulation.alphaTarget(0);
 
 	            // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
-	            var xy;
+	            var xy,dataxy;
 	            if (! viz.hasOwnProperty("positions") || viz.drawIteration === 1) {
 	                viz.positions = {};
 	                if (viz.config.positions !== "") {
@@ -763,8 +797,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                // If the dashboard has updated the fx might already be set
 	                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
 	                    viz.nodeData[i].isPositioned = true;
+	                    // Position in data takes preference over manual positioning
+	                    dataxy = viz.nodeData[i].position.split(",");
+	                    if (dataxy.length === 2 && ! isNaN(dataxy[0]) && ! isNaN(dataxy[1])) {
+	                        viz.nodeData[i].xperc = dataxy[0];
+	                        viz.nodeData[i].yperc = dataxy[1];
 	                    // Data xperc/yperc will be overridden by formatter option
-	                    if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
+	                    } else if (viz.positions.hasOwnProperty(viz.nodeData[i].id)) {
 	                        xy = viz.positions[viz.nodeData[i].id].split(",");
 	                        viz.nodeData[i].xperc = xy[0];
 	                        viz.nodeData[i].yperc = xy[1];

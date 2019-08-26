@@ -1,0 +1,600 @@
+<dashboard theme="light">
+  <label>Flow Map Viz - Documentation</label>
+  <search id="base1">
+    <query>| makeresults
+| eval raw = "
+path=\"Brisbane---LB\" label=\"3 requests/min&lt;br&gt;100ms\" good=3 ### 
+path=\"Sydney---LB\" label=\"6 requests/min&lt;br&gt;100ms\" good=6 ### 
+path=\"Melbourne---LB\" label=\"10 requests/min&lt;br&gt;100ms\" good=10 ### 
+
+path=\"LB---IHS001\" label=\"15 requests/min&lt;br&gt;1ms\" good=15 ### 
+path=\"LB---IHS002\" label=\"4 requests/min&lt;br&gt;1ms\" good=4 ### 
+path=\"IHS001---APP001\" label=\"\" good=4 ### 
+path=\"IHS001---APP002\" label=\"\" good=2 ### 
+path=\"IHS002---APP001\" label=\"\" good=1 ### 
+path=\"IHS002---APP002\" label=\"\" good=1 ### 
+path=\"APP001---DB\" label=\"4 requests/min&lt;br&gt;100ms\" good=4  ### 
+path=\"APP002---DB\" label=\"1 requests/min&lt;br&gt;2334ms\" warn=1 error=1### 
+
+node=DC1 label=\"Primary DC\" width=400 height=120 labely=-50 opacity=0.2   ### 
+node=DC2 label=\"Secondary DC\" width=400 height=120 labely=50 opacity=0.2    ### 
+node=LB label=\"F5\" icon=hdd labely=30 height=40  ### 
+node=Brisbane icon=users labely=30 height=40  ### 
+node=Sydney icon=users labely=30 height=40  ### 
+node=Melbourne icon=users labely=30 height=40  ### 
+node=IHS001 icon=server labely=30 height=40  ### 
+node=IHS002 icon=server labely=30 height=40   ### 
+node=APP001 icon=tablet labely=30 height=40   ### 
+node=APP002 icon=tablet labely=30 height=40   ### 
+node=DB icon=database labely=30 height=40 "
+| makemv delim="###" raw
+| mvexpand raw 
+| rename raw  as  _raw 
+| extract</query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <sampleRatio>1</sampleRatio>
+  </search>
+  <search id="base2">
+    <query>| makeresults
+| eval raw = "
+from=ApplicationLicense to=internal good=2 warn=0  error=0 ###
+from=BucketMover to=internal good=2 warn=0  error=0 ###
+from=BundlesSetup to=internal good=2 warn=0  error=0 ###
+from=CMBucketId to=internal good=12 warn=0  error=0 ###
+from=CertStorageProvider to=internal good=8 warn=0  error=0 ###
+from=ClientSessionsManager to=internal good=2 warn=0  error=0 ###
+from=ClusteringMgr to=internal good=4 warn=0  error=0 ###
+from=DeploymentClient to=internal good=2 warn=2  error=0 ###
+from=DSManager to=internal good=4 warn=0  error=0 ###
+from=DS_DC_Common to=internal good=12 warn=0  error=0 "
+| makemv delim="###" raw
+| mvexpand raw 
+| rename raw  as  _raw 
+| extract</query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <sampleRatio>1</sampleRatio>
+  </search>
+  
+<row>
+  
+   <panel depends="$never_match$">
+      <html>
+        Some inline CSS styles are in this panel.
+        <style> #my_pillnavs {width: 500px !important} </style>
+      </html>
+    </panel>
+  <panel>
+<input type="link" token="tab" id="my_pillnavs">
+    <label></label>
+    <choice value="tab1">Documentation</choice>
+    <choice value="tab2">Example 1</choice>
+    <choice value="tab3">Example 2</choice>
+    <change>
+        <condition value="tab1">
+            <set token="showtab1"></set>
+            <unset token="showtab2"></unset>
+            <unset token="showtab3"></unset>
+        </condition>
+        <condition value="tab2">
+            <unset token="showtab1"></unset>
+            <set token="showtab2"></set>
+            <unset token="showtab3"></unset>
+        </condition>
+        <condition value="tab3">
+            <unset token="showtab2"></unset>
+            <unset token="showtab1"></unset>
+            <set token="showtab3"></set>
+        </condition>
+    </change>
+    <default>tab1</default>
+</input>
+</panel></row>  
+  <row  depends="$showtab1$">
+    <panel>
+      <html>
+<div id="details"><p>A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizcerial by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.</p>
+<p>Copyright (C) 2019 Chris Younger. I am a Splunk Professional Services consultant working for JDS Australia, in Brisbane Australia.</p>
+<p><a href="https://github.com/ChrisYounger/flow_map_viz">Source code</a> | <a href="https://splunkbase.splunk.com/app/4657/">Splunkbase</a> |  <a href="https://answers.splunk.com/app/questions/4657.html">Questions, Bugs or Suggestions</a> | <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds">My Splunk apps</a></p>
+<p><br /><br /><br /></p>
+<h1>Usage</h1>
+<p>This visualisation expects tabular data, with specific field names. There are two kinds of row data that should be supplied: links and nodes.  The link data is identified by having both a <code>from</code> and <code>to</code> field, or a <code>path</code> field. The path field is delimited by three hyphens "<code>---</code>" and can include hops through multiple nodes.  The node data will have a node field. </p>
+<h2>Example 1,  simple links using  <code>from</code> / <code>to</code> fields</h2>
+<table class="table" style="width:500px; min-width:unset; max-width:unset;">
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>from</strong></td>
+<td><strong>to</strong></td>
+<td><strong>good</strong></td>
+</tr>
+<tr>
+<td>users</td>
+<td>loadbalancer</td>
+<td>3000</td>
+</tr>
+<tr>
+<td>loadbalancer</td>
+<td>webserver1</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>loadbalancer</td>
+<td>webserver2</td>
+<td>1500</td>
+</tr>
+<tr>
+<td>loadbalancer</td>
+<td>webserver3</td>
+<td>500</td>
+</tr>
+</tbody>
+</table>
+<p>Note that nodes are automatically created. </p>
+<p><img alt="" src="https://cdn.apps.splunk.com/media/public/docimages/b896838e-c72d-11e9-90ac-06a3434e669e.png" /></p>
+<h2>Example 2, same output using <code>path</code> field</h2>
+<table class="table" style="width:500px; min-width:unset; max-width:unset;">
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>path</strong></td>
+<td><strong>good</strong></td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver1</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver2</td>
+<td>1500</td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver3</td>
+<td>500</td>
+</tr>
+</tbody>
+</table>
+<p>Shared links will have the fields "good", "warn" and "error" automatically summed together</p>
+<p><br /><br /><br /></p>
+<h2>Example 3, customise output by adding "node" rows.</h2>
+<p>For the users and loadbalancer rows, a custom label is set, along with a font-awesome icon and the label is moved underneath.</p>
+<table class="table" style="width:800px; min-width:unset; max-width:unset;">
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>path</strong></td>
+<td><strong>good</strong></td>
+<td><strong>node</strong></td>
+<td><strong>label</strong></td>
+<td><strong>icon</strong></td>
+<td><strong>height</strong></td>
+<td><strong>labely</strong></td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver1</td>
+<td>1000</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver2</td>
+<td>1500</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver3</td>
+<td>500</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>users---loadbalancer---webserver3</td>
+<td>500</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>users</td>
+<td>Users</td>
+<td>user</td>
+<td>40</td>
+<td>30</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>loadbalancer</td>
+<td>LoadBalancer</td>
+<td>hdd</td>
+<td>40</td>
+<td>30</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="" src="https://cdn.apps.splunk.com/media/public/docimages/915328d6-c72d-11e9-b5db-06a551a85bba.png" /></p>
+<h1>How to manually set positions</h1>
+<p><br /><br /><br /><br />
+<img alt="" src="/static/app/flow_map_viz/positioning1.png" /><br />
+<br /><br /><br /><br />
+<img alt="" src="/static/app/flow_map_viz/positioning2.png" /><br /><br />
+<br /><br /><br /></p>
+<h1>Field reference</h1>
+<h2>Fields for <strong>link</strong> rows:</h2>
+<table class="table" style="width:900px; min-width:unset; max-width:unset;">
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Field</strong></td>
+<td><strong>Type</strong></td>
+<td><strong>Description</strong></td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td>String</td>
+<td>An ID of node to use as the source of the link.</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td>String</td>
+<td>An ID of node to use as the target of the link.</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>String</td>
+<td>A series of nodes to link together, seperated by three hypens "<code>---</code>". Should not be specified for the same row that has <code>from</code>/<code>to</code> fields or it will be ignored.</td>
+</tr>
+<tr>
+<td><code>good</code></td>
+<td>Number</td>
+<td>A value representing the volume of good traffic, which will be normalised (by default) and displayed as particles (the "good" color can be set in the formatting options and defaults to dark green).</td>
+</tr>
+<tr>
+<td><code>warn</code></td>
+<td>Number</td>
+<td>A value representing the volume of warning traffic, which will be normalised (by default) and displayed as particles (the "warn" color can be set in the formatting options and defaults to orange).</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>Number</td>
+<td>A value representing the volume of error traffic, which will be normalised (by default) and displayed as particles (the "error" color can be set in the formatting options and defaults to red).</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>HTML color code</td>
+<td>Set the color of the line</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>Number</td>
+<td>Set the width of the line</td>
+</tr>
+<tr>
+<td><code>distance</code></td>
+<td>Number</td>
+<td>Set the length of the line. This field is redundant if you are manually positioning nodes.</td>
+</tr>
+<tr>
+<td><code>speed</code></td>
+<td>String</td>
+<td>The speed of the particles. Between 1 and 100. Defaults to 90.</td>
+</tr>
+<tr>
+<td><code>labelx</code></td>
+<td>Number</td>
+<td>Offset the label left and right from the centre of the line. Measured in pixels. Negative values move left.</td>
+</tr>
+<tr>
+<td><code>labely</code></td>
+<td>Number</td>
+<td>Offset the label up and down from the centre of the line. Measured in pixels. Negative values move up.</td>
+</tr>
+<tr>
+<td><code>fromside</code></td>
+<td>String</td>
+<td>Specify a custom attachment point on the source node. See note [1] below.</td>
+</tr>
+<tr>
+<td><code>toside</code></td>
+<td>String</td>
+<td>Specify a custom attachment point on the target node. See note [1] below.</td>
+</tr>
+<tr>
+<td><code>tooltip</code></td>
+<td>String</td>
+<td>Specify a custom hover tooltip for the line</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>String</td>
+<td>Specify a custom label to occur on the line. If "allow HTML" is enabled in formatter options, this field can contain HTML such as &lt;br/&gt; to create a new line.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>[1] fromside / toside:   Possible values are <code>top</code>, <code>bottom</code>, <code>right</code>, <code>left</code>. Defaults to the centre of the node. The value can also be specified with a modifier (<code>+</code>/<code>-</code>) to tune where on that side the attachment occurs. For example: "bottom-10" will attach to the bottom side, 10px to the left of center, "top+20"  will attach to the top and 20 pixels to the right of center.   When using <code>path</code> with multiple nodes, the <code>fromside</code> only affects the first node and the <code>toside</code> only affects the last node.</li>
+</ul>
+<p><br /><br /><br /></p>
+<h2>Fields for <strong>node</strong> rows:</h2>
+<table class="table" style="width:900px; min-width:unset; max-width:unset;">
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Field</strong></td>
+<td><strong>Type</strong></td>
+<td><strong>Description</strong></td>
+</tr>
+<tr>
+<td><code>node</code></td>
+<td>String</td>
+<td>The ID of a node. Nodes can be disconnected with no links.</td>
+</tr>
+<tr>
+<td><code>icon</code></td>
+<td>Number</td>
+<td>A font awesome icon name. From here: <a href="https://fontawesome.com/icons?d=gallery&amp;m=free">https://fontawesome.com/icons?d=gallery&amp;m=free</a> . Defaults to the font-awesome solid icon set (<code>fas</code>). Supply "far ICON" to use font awesome regular.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>String</td>
+<td>Set a custom label. If "allow HTML" is enabled in formatter options, this field can contain HTML such as &lt;br/&gt; to create a new line. Defaults to the node ID value.</td>
+</tr>
+<tr>
+<td><code>labelx</code></td>
+<td>String</td>
+<td>Offset the label left and right from the centre of the node. Measured in pixels. Negative values move left.</td>
+</tr>
+<tr>
+<td><code>labely</code></td>
+<td>Number</td>
+<td>Offset the label up and down from the centre of the node. Measured in pixels. Negative values move up.</td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td>Number</td>
+<td>The height of the node in pixels.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>Number</td>
+<td>The width of the node in pixels.</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>HTML color code</td>
+<td>Set the color of the node.</td>
+</tr>
+<tr>
+<td><code>radius</code></td>
+<td>Number</td>
+<td>Set the border radius in pixels. Set to the same value as the height and width to make the node a circe.</td>
+</tr>
+<tr>
+<td><code>opacity</code></td>
+<td>Number</td>
+<td>A value between 0 (transparent) and 1 (opaque)</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>String</td>
+<td>A comma seperated pair of coordinates. First number is the horizontal position and second is the vertical position as a percentage of available space in the frame. Values should be between 0 and 100</td>
+</tr>
+</tbody>
+</table>
+<p><br /><br /><br /></p>
+<h2>Third party software</h2>
+<p>The following third-party libraries are used by this app. Thank you!</p>
+<ul>
+<li>jQuery - MIT - <a href="https://jquery.com/">https://jquery.com/</a></li>
+<li>D3 - BSD 3-Clause - <a href="https://d3js.org/">https://d3js.org/</a></li>
+<li>Font Awesome - Creative Commons Attribution-ShareAlike 4.0 License - <a href="https://fontawesome.com/">https://fontawesome.com/</a></li>
+<li>TinyColor - MIT - <a href="https://github.com/bgrins/TinyColor">https://github.com/bgrins/TinyColor</a></li>
+</ul>
+<p><br /><br /><br /></p></div> 
+      </html>
+    </panel>
+    </row>
+  <row  depends="$showtab2$">
+    <panel>
+      <html>
+        This example shows...
+      </html>
+    </panel>
+    <panel><html>
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #3dc9b0;">index</span><span style="color: #d4d4d4;">=_internal </span><span style="color: #3dc9b0;">sourcetype</span><span style="color: #d4d4d4;">=splunkd component=* log_level=*  </span><span style="color: #dd6a6f;">NOT</span><span style="color: #d4d4d4;"> component=</span><span style="color: #ce9178;">"Metrics"</span><span style="color: #d4d4d4;"> </span><span style="color: #dd6a6f;">NOT</span><span style="color: #d4d4d4;"> component=</span><span style="color: #ce9178;">"PeriodicHealthReporter"</span><span style="color: #d4d4d4;"> </span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">stats</span><span style="color: #d4d4d4;"> </span><span style="color: #c586c0;">sum</span><span style="color: #d4d4d4;">(eval(log_level=</span><span style="color: #ce9178;">"ERROR"</span><span style="color: #d4d4d4;">)) </span><span style="color: #dd6a6f;">as</span><span style="color: #d4d4d4;"> error </span><span style="color: #c586c0;">sum</span><span style="color: #d4d4d4;">(eval(log_level=</span><span style="color: #ce9178;">"WARN"</span><span style="color: #d4d4d4;">)) </span><span style="color: #dd6a6f;">as</span><span style="color: #d4d4d4;"> warn </span><span style="color: #c586c0;">sum</span><span style="color: #d4d4d4;">(eval(log_level=</span><span style="color: #ce9178;">"INFO"</span><span style="color: #d4d4d4;">)) </span><span style="color: #dd6a6f;">as</span><span style="color: #d4d4d4;"> good </span><span style="color: #dd6a6f;">by</span><span style="color: #d4d4d4;"> component </span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">head</span><span style="color: #d4d4d4;"> </span><span style="color: #b5cea8;">10</span><span style="color: #d4d4d4;"> </span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">eval</span><span style="color: #d4d4d4;"> from=component, to=</span><span style="color: #ce9178;">"internal"</span><span style="color: #d4d4d4;"> </span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">table</span><span style="color: #d4d4d4;"> from to good warn error </span></span><br/><span><span> </span></span><br/></div>      
+   </html> </panel>
+    </row>    
+  <row  depends="$showtab2$">
+    <panel>
+      <viz type="flow_map_viz.flow_map_viz">
+        <title>Simple example</title>
+        <search base="base2">
+          <query/>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="flow_map_viz.flow_map_viz.background_color">#ffffff</option>
+        <option name="flow_map_viz.flow_map_viz.background_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.course_positions">yes</option>
+        <option name="flow_map_viz.flow_map_viz.labels_as_html">no</option>
+        <option name="flow_map_viz.flow_map_viz.line_style">solid</option>
+        <option name="flow_map_viz.flow_map_viz.link_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.link_distance">200</option>
+        <option name="flow_map_viz.flow_map_viz.link_label_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.link_opacity">0.5</option>
+        <option name="flow_map_viz.flow_map_viz.link_speed">90</option>
+        <option name="flow_map_viz.flow_map_viz.link_text_size">10</option>
+        <option name="flow_map_viz.flow_map_viz.link_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.maxnodes">100</option>
+        <option name="flow_map_viz.flow_map_viz.node_bg_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_mode">darker1</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.node_center_force">0.1</option>
+        <option name="flow_map_viz.flow_map_viz.node_height">30</option>
+        <option name="flow_map_viz.flow_map_viz.node_radius">2</option>
+        <option name="flow_map_viz.flow_map_viz.node_repel_force">1000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_size">12</option>
+        <option name="flow_map_viz.flow_map_viz.node_width">120</option>
+        <option name="flow_map_viz.flow_map_viz.particle_blur">0</option>
+        <option name="flow_map_viz.flow_map_viz.particle_error_color">#b22b32</option>
+        <option name="flow_map_viz.flow_map_viz.particle_good_color">#1a9035</option>
+        <option name="flow_map_viz.flow_map_viz.particle_limit">60</option>
+        <option name="flow_map_viz.flow_map_viz.particle_size">3</option>
+        <option name="flow_map_viz.flow_map_viz.particle_spread">5</option>
+        <option name="flow_map_viz.flow_map_viz.particle_warn_color">#d16f18</option>
+        <option name="flow_map_viz.flow_map_viz.positions">"internal":"50,50"</option>
+        <option name="flow_map_viz.flow_map_viz.stop_when_not_visible">yes</option>
+        <option name="height">376</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <table>
+        <title>Data</title>
+        <search base="base2">
+          <query>| table from to good warn error</query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row  depends="$showtab3$">
+    <panel>
+      <html>
+        This example shows how to define node properties in addition to link properties. Its an unsual concept to have a single search that produces two different sets of data, however this can be easily performed using append. This example also shows how a multiple-links can be specified at once using the "path" syntax. Each node should be delimited by three hypens "---". If the same link pair exists in multiple rows, then the "good", "warn" and "error" fields will be summed. For other link customisations such as "speed" and "width" the last set property will take effect.
+      </html>
+    </panel>
+    <panel>
+      <html>
+If node data is stored in a lookup table, it can be added to an existing query like so: <div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">append</span><span style="color: #d4d4d4;"> [</span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #569cd6;font-weight: bold;">inputlookup</span><span style="color: #d4d4d4;"> my_table_of_nodes.csv]</span></span><br/></div>.         
+      </html>
+    </panel>
+    </row>  
+  <row  depends="$showtab3$">
+    <panel>
+      <viz type="flow_map_viz.flow_map_viz">
+        <title>Complex example</title>
+        <search base="base1">
+          <query/>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="flow_map_viz.flow_map_viz.background_color">#ffffff</option>
+        <option name="flow_map_viz.flow_map_viz.background_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.course_positions">yes</option>
+        <option name="flow_map_viz.flow_map_viz.labels_as_html">no</option>
+        <option name="flow_map_viz.flow_map_viz.line_style">solid</option>
+        <option name="flow_map_viz.flow_map_viz.link_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.link_distance">200</option>
+        <option name="flow_map_viz.flow_map_viz.link_label_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.link_opacity">0.4</option>
+        <option name="flow_map_viz.flow_map_viz.link_speed">90</option>
+        <option name="flow_map_viz.flow_map_viz.link_text_size">10</option>
+        <option name="flow_map_viz.flow_map_viz.link_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.maxnodes">100</option>
+        <option name="flow_map_viz.flow_map_viz.node_bg_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_mode">darker1</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.node_center_force">0.1</option>
+        <option name="flow_map_viz.flow_map_viz.node_height">30</option>
+        <option name="flow_map_viz.flow_map_viz.node_radius">2</option>
+        <option name="flow_map_viz.flow_map_viz.node_repel_force">1000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_size">12</option>
+        <option name="flow_map_viz.flow_map_viz.node_width">120</option>
+        <option name="flow_map_viz.flow_map_viz.particle_blur">0</option>
+        <option name="flow_map_viz.flow_map_viz.particle_error_color">#b22b32</option>
+        <option name="flow_map_viz.flow_map_viz.particle_good_color">#1a9035</option>
+        <option name="flow_map_viz.flow_map_viz.particle_limit">60</option>
+        <option name="flow_map_viz.flow_map_viz.particle_size">3</option>
+        <option name="flow_map_viz.flow_map_viz.particle_spread">5</option>
+        <option name="flow_map_viz.flow_map_viz.particle_warn_color">#d16f18</option>
+        <option name="flow_map_viz.flow_map_viz.positioning">course</option>
+        <option name="flow_map_viz.flow_map_viz.positions">"DC1":"74,30","DC2":"74,68","Brisbane":"13,16","Melbourne":"13,46","LB":"44,48","Sydney":"13,72","IHS002":"61,65","IHS001":"61,30","DB":"87,30","APP002":"74,65","APP001":"74,30"</option>
+        <option name="flow_map_viz.flow_map_viz.stop_when_not_visible">yes</option>
+        <option name="height">526</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <table>
+        <title>Data</title>
+        <search base="base1">
+          <query>| table path node good warn error height width* icon label labely opacity</query>
+        </search>
+        <option name="count">30</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
