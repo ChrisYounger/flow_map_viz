@@ -7,7 +7,7 @@ Copyright (C) 2019 Chris Younger. I am a Splunk Professional Services consultant
 
 [Splunkbase](https://splunkbase.splunk.com/app/4657/#/details) | [Source code](https://github.com/ChrisYounger/flow_map_viz) |  [Questions, Bugs or Suggestions](https://answers.splunk.com/app/questions/4657.html) | [My Splunk apps](https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds)
 
-![screenshot](https://raw.githubusercontent.com/ChrisYounger/flow_map_viz/master/appserver/static/example.png)
+![screenshot](https://raw.githubusercontent.com/ChrisYounger/flow_map_viz/master/appserver/static/demo.png)
 
 For usage instructions see Splunkbase or the "help" tab on the formatter menu.
 
