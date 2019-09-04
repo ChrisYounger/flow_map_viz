@@ -1,5 +1,6 @@
 .flow_map_viz-container {
     position:relative;
+    margin: auto;
 }
 .flow_map_viz-canvas,
 .flow_map_viz-svg,

@@ -138,7 +138,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 </tbody>
 </table>
 <p>Note that nodes are automatically created. </p>
-<p><img alt="" src="https://cdn.apps.splunk.com/media/public/docimages/b896838e-c72d-11e9-90ac-06a3434e669e.png" /></p>
+<p><img alt="" src="/static/app/flow_map_viz/example1.png" /></p>
 <h2>Example 2, same output using <code>path</code> field</h2>
 <table class="table" style="width:500px; min-width:unset; max-width:unset;">
 <thead>
@@ -248,13 +248,42 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 </tr>
 </tbody>
 </table>
-<p><img alt="" src="https://cdn.apps.splunk.com/media/public/docimages/915328d6-c72d-11e9-b5db-06a551a85bba.png" /></p>
+<p><img alt="" src="/static/app/flow_map_viz/example2.png" /></p>
 <h1>How to manually set positions</h1>
 <p><br /><br /><br /><br />
 <img alt="" src="/static/app/flow_map_viz/positioning1.png" /><br />
 <br /><br /><br /><br />
 <img alt="" src="/static/app/flow_map_viz/positioning2.png" /><br /><br />
-<br />Double click a node disable its manual positioning.<br /><br /></p>
+<br />Double click a node disable its manual positioning.<br /><br /><br /><br /></p>
+<h1>Data domain</h1>
+<p>
+<br />
+By default, the amount of particles shown is automatically ranged/scaled (using linear interpolation) based on the data supplied. The visualization finds the link that has the largest volume of (good + warn + error) and uses that as the upper bound. The formatter option "Particles" > "Data domain", allows manually defining the range that the data is expected to fall into. The value can be set either as a single value representing the maximum (min will default to 0) or a comma seperated pair of numbers (min,max). 
+<br /><br /><br /><br />
+</p>
+<h1>Drilldowns , tokens and links</h1>
+<p>
+<br />
+There are no built-in drilldowns with this visualization. If you need a drilldown, enable the "Advanced" &gt; "HTML Labels" formatter option, and then set the "label" data field to include a html "a" tag to link to your required destination. E.g.
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing_query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">eval</span><span style="color: #d4d4d4;"> label = </span><span style="color: #ce9178;">"&lt;a href='search?q="</span><span style="color: #d4d4d4;"> + drilldown + </span><span style="color: #ce9178;">"' target='_blank' style='text-decoration:none;'&gt;"</span><span style="color: #d4d4d4;"> + node_label + </span><span style="color: #ce9178;">"&lt;/a&gt;"</span></span><br/></div>
+<br />
+When clicking a node, several tokens will be set (e.g. <code>$click.value$</code>), and logged to the browser console. Hit F12 to open browser developer tools to observe what tokens are being set. If the field <code>drilldown</code> exists on a node, then this value will be used for <code>$click.value$</code>, otherwise it will be the node id.
+<br /><br /><br /><br />
+</p>
+<h1>Building a complex flow map using a lookup</h1>
+<p>
+<br />
+Attemping to set the various node and link options can lead to a messy SPL query. A neat way to solve this is to build a lookup table of all the nodes and links, and then <span style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">append</span></span></span> it to the end of your real data. If the same link pair exists in multiple rows, then the "good", "warn" and "error" fields will be summed. For other link customisations such as "speed" and "width" the last set property will take effect.
+<br />
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">append</span><span style="color: #d4d4d4;"> [</span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #569cd6;font-weight: bold;">inputlookup</span><span style="color: #d4d4d4;"> my_flowmap_config.csv]</span></span></div>    
+<br /><br />
+Here is an search that will generate a template CSV file called my_flowmap_config.csv"":
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">makeresults</span><span style="color: #d4d4d4;"> </span><span style="color: #3dc9b0;">count</span><span style="color: #d4d4d4;">=</span><span style="color: #b5cea8;">10</span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">fillnull</span><span style="color: #d4d4d4;"> </span><span style="color: #3dc9b0;">value</span><span style="color: #d4d4d4;">=</span><span style="color: #ce9178;">""</span><span style="color: #d4d4d4;"> node from to height radius opacity position icon </span><span style="color: #d4d4d4;">good warn error color width distance speed labelx </span><span style="color: #d4d4d4;">labely fromside toside tooltip label</span></span><br/><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">table</span><span style="color: #d4d4d4;"> node from to height width radius opacity position</span><span style="color: #d4d4d4;"> icon good warn error color distance speed label l</span><span style="color: #d4d4d4;">abelx labely fromside toside tooltip</span></span></div>
+
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #569cd6;font-weight: bold;"> outputlookup</span><span style="color: #d4d4d4;"> my_flowmap_config.csv</span></span><br/></div>
+<br /><br /><br /><br />
+</p>
+
 <h1>Field reference</h1>
 <h2>Fields for <strong>link</strong> rows:</h2>
 <table class="table" style="width:900px; min-width:unset; max-width:unset;">
@@ -379,7 +408,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 </tr>
 <tr>
 <td><code>icon</code></td>
-<td>Number</td>
+<td>String</td>
 <td>A font awesome icon name. From here: <a href="https://fontawesome.com/icons?d=gallery&amp;m=free">https://fontawesome.com/icons?d=gallery&amp;m=free</a> . Defaults to the font-awesome solid icon set (<code>fas</code>). Supply "far ICON" to use font awesome regular.</td>
 </tr>
 <tr>
@@ -427,6 +456,16 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 <td>String</td>
 <td>A comma seperated pair of coordinates. First number is the horizontal position and second is the vertical position as a percentage of available space in the frame. Values should be between 0 and 100</td>
 </tr>
+<tr>
+<td><code>order</code></td>
+<td>Number</td>
+<td>The stacking order of the node. Defaults to 50. Lower numbers stack under higher numbers.</td>
+</tr>
+<tr>
+<td><code>drilldown</code></td>
+<td>String</td>
+<td>A value that will be set into the token <code>$click.value$</code> when the node is clicked. Otherwise the node id will be set.</td>
+</tr>
 </tbody>
 </table>
 <p><br /><br /><br /></p>
@@ -445,7 +484,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
   <row  depends="$showtab2$">
     <panel>
       <html>
-        This example shows...
+        Basic example using from/to syntax. Nodes are automatically created and use default options set in the formatter configuration.
       </html>
     </panel>
     <panel><html>
@@ -521,7 +560,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
   <row  depends="$showtab3$">
     <panel>
       <html>
-        This example shows how to define node properties in addition to link properties. Its an unsual concept to have a single search that produces two different sets of data, however this can be easily performed using append. This example also shows how a multiple-links can be specified at once using the "path" syntax. Each node should be delimited by three hypens "---". If the same link pair exists in multiple rows, then the "good", "warn" and "error" fields will be summed. For other link customisations such as "speed" and "width" the last set property will take effect.
+        A more complex example that shows how to define node properties in addition to link properties. This example also shows how multiple-links can be specified at once using the "path" syntax. Each node should be delimited by three hypens "---".
       </html>
     </panel>
     <panel>

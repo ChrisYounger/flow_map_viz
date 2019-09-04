@@ -44,9 +44,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// Future: Add arrow mode
-	// Future: highlight link/nodes/labels on hover (dim particles and other links).
-	// Future: Add webgl shader option: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
+	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO:
+	// Add arrow mode
+	// highlight link/nodes/labels on hover (dim particles and other links).
+	// Add webgl shader option: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
+	// Allow backlinks
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 	    __webpack_require__(1),
@@ -86,6 +88,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                background_mode: "custom",
 	                background_color: "#ffffff",
 	                renderer: "canvas",
+	                width: "",
 
 	                link_speed: "90",
 	                link_opacity: "0.5",
@@ -97,6 +100,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                line_style: "solid",
 
 	                particle_limit: "60",
+	                particle_domain: "",
 	                particle_good_color: "#1a9035",
 	                particle_warn_color: "#d16f18",
 	                particle_error_color: "#b22b32",
@@ -148,20 +152,20 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        },
 
 	        // read a row of input data and put it into a normalisaed object
-	        newNode: function(id, opts, order){
+	        newNode: function(id, opts, dataorder){
 	            var viz = this;
 	            if (! viz.nodeDataMap.hasOwnProperty(id)){
 	                viz.nodeDataMap[id] = {};
 	                viz.nodeData.push(viz.nodeDataMap[id]);
 	            }
-	            // if the node has alraedy been updated this run then dont update it again (i.e. its a loose node)
+	            // if the node has already been updated this run then dont update it again (i.e. its a loose node)
 	            if (viz.nodeDataMap[id].drawIteration === viz.drawIteration) {
 	                return;
 	            }
 	            // It doesnt make sense for a "node" row to be specified multiple times
 	            viz.nodeDataMap[id].id = id;
 	            viz.nodeDataMap[id].drawIteration = viz.drawIteration;
-	            viz.nodeDataMap[id].order = order;
+	            viz.nodeDataMap[id].dataorder = dataorder;
 	            viz.nodeDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : id;
 	            viz.nodeDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : "0";
 	            viz.nodeDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labelx !== "" ? opts.labely : "0";
@@ -172,6 +176,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.nodeDataMap[id].opacity = opts.hasOwnProperty("opacity") ? opts.opacity : "";
 	            viz.nodeDataMap[id].position = opts.hasOwnProperty("position") ? opts.position : "";
 	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
+	            viz.nodeDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : "";
+	            viz.nodeDataMap[id].order = opts.hasOwnProperty("order") && opts.order !== "" ? opts.order : "50";
 
 	            // Check numeric values are actually numeric
 	            if (isNaN(viz.nodeDataMap[id].labelx)) {
@@ -188,6 +194,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }
 	            if (isNaN(viz.nodeDataMap[id].rx)) {
 	                viz.nodeDataMap[id].rx = "2";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].order)) {
+	                viz.nodeDataMap[id].order = "50";
 	            }
 	            if (isNaN(viz.nodeDataMap[id].opacity)) {
 	                viz.nodeDataMap[id].opacity = "";
@@ -522,6 +531,14 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.doRemove();
 	                viz.alreadyDrawn = serialised;
 	            }
+	            // Manually defined width
+	            var widthDefined = Number(viz.config.width);
+	            if (widthDefined > 0) {
+	                viz.config.containerWidth = widthDefined;
+	                viz.$container_wrap.css("width", widthDefined + "px");
+	            } else {
+	                viz.$container_wrap.css("width","");
+	            }
 
 	            if (! viz.hasOwnProperty("drawIteration") || ! viz.hasOwnProperty("svg")) {
 	                viz.drawIteration = 0;
@@ -552,7 +569,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                } else if (viz.data.results[l].hasOwnProperty("path") && viz.data.results[l].path !== "") {
 	                    pathParts = viz.data.results[l].path.split("---");
 	                    for (j = 0; j < pathParts.length; j++) {
-	                        nodesLoose[pathParts[j]] = nodeOrder++;
+	                        // This is a bit confusing, but to better handle the case where a lookup table config is appended after
+	                        // some real data, we want to use the sort of from the nodes definition. It becomes a bit wierd if 
+	                        // only some nodes are defined and some arent. In any case if people really care they should supply the 
+	                        // node field "order" to explicity set the order.
+	                        nodesLoose[pathParts[j]] = 1000 + nodeOrder++;
 	                        if (j < (pathParts.length - 1)) {
 	                            viz.newLink(pathParts[j], pathParts[j+1], viz.data.results[l], (j === 0), ((j + 2) === pathParts.length));
 	                        }
@@ -658,21 +679,33 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    }
 	                }
 	            }
-
+	            // Particle domain interpolation
+	            var particle_domain_parts = $.trim(viz.config.particle_domain).split(",");
+	            var particle_domain_min = 0;
+	            var particle_domain_max = viz.totalParticles;
+	            if (particle_domain_parts.length === 2 && ! isNaN(particle_domain_parts[0]) && $.trim(particle_domain_parts[0]) !== ""){
+	                particle_domain_min = Number(particle_domain_parts[0]);
+	            }
+	            if (particle_domain_parts.length === 2 && ! isNaN(particle_domain_parts[1]) && $.trim(particle_domain_parts[1]) !== ""){
+	                particle_domain_max = Number(particle_domain_parts[1]);
+	            } else if (particle_domain_parts.length === 1 && ! isNaN(particle_domain_parts[0]) && $.trim(particle_domain_parts[0]) !== "") {
+	                particle_domain_max = Number(particle_domain_parts[0]);
+	            }
 	            viz.particleMax = Number(viz.config.particle_limit);
 	            // If zero, hide all particles
-	            if (viz.particleMax === 0 || viz.totalParticles === 0) {
+	            if (viz.particleMax === 0 || (particle_domain_max - particle_domain_min) === 0) {
 	                viz.particleMultiplier = 0;
-	            // If less than zero, we use what is the data. This could cause a browser crash if the user doesnt know what they are doing.
+	            // If less than zero, don't scale. 
 	            } else if (viz.particleMax < 0) {
 	                viz.particleMultiplier = 1;
 	            } else {
-	                viz.particleMultiplier = viz.particleMax / viz.totalParticles;
+	                // linear interpolation
+	                viz.particleMultiplier = viz.particleMax / (particle_domain_max - particle_domain_min);
 	            }
 
 	            // Sort the lists back into the order it arrived
 	            viz.nodeData.sort(function(a,b){
-	                return a.order - b.order;
+	                return a.dataorder - b.dataorder;
 	            });
 
 	            if (invalidRows > 0) {
@@ -682,7 +715,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            // Data is missing a mandatory columns 
 	            if (viz.nodeData.length ===  0 && invalidRows > 0) {
 	                viz.doRemove();
-	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Data is missing a mandatory columns ('from', 'to')</div>");
+	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Data is missing a mandatory columns ('from'/'to' OR 'path' ).<br /><a href='/app/flow_map_viz/documentation' target='_blank'>Click here for examples and documentation</a></div>");
 	                return;
 	            }
 
@@ -887,6 +920,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .style("width", function(d){ return d.width + "px"; })
 	                .style("height", function(d){ return d.height + "px"; })
 	                .style("opacity", function(d){ return d.opacity; })
+	                .style("z-index", function(d){ return d.order; })
 	                .call(function(selection){
 	                    // set then label on all types
 	                    selection
