@@ -1,5 +1,5 @@
 *.pyc
-local/
+local/app.conf
 metadata/local.meta
 /git/
  
