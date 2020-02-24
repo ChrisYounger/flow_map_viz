@@ -291,7 +291,7 @@ function(
                     var maxx = Math.max(d.sx, d.tx);
                     var miny = Math.min(d.sy, d.ty);
                     var maxy = Math.max(d.sy, d.ty); 
-                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
+                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny) + "px)";
                 });
         },
 
@@ -949,13 +949,19 @@ function(
                 .data(viz.linkData, function(d){ return d.id; })
                 .join("div")
                     .attr("class", "flow_map_viz-linklabel")
-                    .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
-                    .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
+                    .style("left", function(d){ return Number(d.labelx) + "px";})
+                    .style("top", function(d){ return Number(d.labely) + "px"; })
                     .attr("title", function(d) { return d.tooltip; })
                     .style("text-shadow", function(d){
                         return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
                     })
                     .html(function(d) { return d.label; });
+
+            // Center link labels
+            document.querySelectorAll(".flow_map_viz-linklabel").forEach( function(label) {
+                label.style.left = "calc(" + label.style.left + " - " + (label.offsetWidth/2) + "px)";
+                label.style.top  = "calc(" + label.style.top + " - " + (label.offsetHeight/2) + "px)";
+            });
 
             // redo particles
             clearTimeout(viz.startParticlesTimeout);
