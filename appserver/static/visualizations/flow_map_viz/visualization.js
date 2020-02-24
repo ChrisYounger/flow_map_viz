@@ -922,11 +922,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .style("opacity", function(d){ return d.opacity; })
 	                .style("z-index", function(d){ return d.order; })
 	                .call(function(selection){
-	                    // set then label on all types
+	                    // set the label on all types
 	                    selection
 	                        .select(".flow_map_viz-nodelabel")
-	                        .style("margin-left", function(d){ return d.labelx + "px"; })
-	                        .style("margin-top", function(d){ return d.labely + "px"; })
+	                        .style("transform", function(d){ return "translate(" + d.labelx + "px," + d.labely + "px)"; })
 	                        .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
 
 	                    // non icon types (there will be unexpected results if a node changes between an icon and nonicon dynamically)
