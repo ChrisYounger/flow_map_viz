@@ -77,6 +77,42 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	        updateView: function(data, config) {
 	            var viz = this;
+	            viz.scheduleDraw(data, config);
+	        },
+
+	        // debounce the draw
+	        scheduleDraw: function(data, config){
+	            var viz = this;
+	            if (typeof data === "undefined") { return; }
+	            clearTimeout(viz.drawtimeout);
+	            viz.drawtimeout = setTimeout(function(){
+	                viz.doDraw(data, config);
+	            }, 300);
+	        },
+
+	        doDraw: function(in_data, in_config) {
+	            var viz = this;
+	            var invalidRows = 0;
+	            var nodeOrder = 1;
+	            var nodesLoose = {};
+	            var pathParts;
+	            var i, j, k, l, attach;
+	            $(window).off("resize.flow_map_viz").on("resize.flow_map_viz", function () {
+	                viz.scheduleDraw(in_data, in_config);
+	            });
+
+	            // Dont draw unless this is a real element under body
+	            if (! viz.$container_wrap.parents().is("body")) {
+	                //("aborting: not under html body");
+	                return;
+	            }
+	            if (viz.$container_wrap.height() <= 0) {
+	                //console.log("aborting: container has no height");
+	                return;
+	            }
+
+	            viz.data = in_data;
+
 	            viz.config = {
 	                maxnodes: "100",
 	                stop_when_not_visible: "yes",
@@ -88,7 +124,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                background_mode: "custom",
 	                background_color: "#ffffff",
 	                new_labeling: "yes",
-	                renderer: "canvas",
+	                //renderer: "canvas",
 	                width: "",
 
 	                link_speed: "90",
@@ -122,9 +158,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                node_radius: "2",
 	            };
 	            // Override defaults with selected items from the UI
-	            for (var opt in config) {
-	                if (config.hasOwnProperty(opt)) {
-	                    viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = config[opt];
+	            for (var opt in in_config) {
+	                if (in_config.hasOwnProperty(opt)) {
+	                    viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = in_config[opt];
 	                }
 	            }
 
@@ -133,398 +169,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                warn:  viz.config.particle_warn_color,
 	                error: viz.config.particle_error_color,
 	            };
-
-	            viz.data = data;
-
-	            $(window).off("resize.flow_map_viz").on("resize.flow_map_viz", function () {
-	                viz.scheduleDraw();
-	            });
-
-	            viz.scheduleDraw();
-	        },
-
-	        // debounce the draw
-	        scheduleDraw: function(){
-	            var viz = this;
-	            clearTimeout(viz.drawtimeout);
-	            viz.drawtimeout = setTimeout(function(){
-	                viz.doDraw();
-	            }, 300);
-	        },
-
-	        // read a row of input data and put it into a normalisaed object
-	        newNode: function(id, opts, dataorder){
-	            var viz = this;
-	            if (! viz.nodeDataMap.hasOwnProperty(id)){
-	                viz.nodeDataMap[id] = {};
-	                viz.nodeData.push(viz.nodeDataMap[id]);
-	            }
-	            // if the node has already been updated this run then dont update it again (i.e. its a loose node)
-	            if (viz.nodeDataMap[id].drawIteration === viz.drawIteration) {
-	                return;
-	            }
-	            // It doesnt make sense for a "node" row to be specified multiple times
-	            viz.nodeDataMap[id].id = id;
-	            viz.nodeDataMap[id].drawIteration = viz.drawIteration;
-	            viz.nodeDataMap[id].dataorder = dataorder;
-	            viz.nodeDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : id;
-	            viz.nodeDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : "0";
-	            viz.nodeDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labelx !== "" ? opts.labely : "0";
-	            viz.nodeDataMap[id].height = opts.hasOwnProperty("height") && opts.height !== "" ? Number(opts.height) : Number(viz.config.node_height);
-	            viz.nodeDataMap[id].width = opts.hasOwnProperty("width") && opts.width !== "" ? Number(opts.width) : Number(viz.config.node_width);
-	            viz.nodeDataMap[id].color = opts.hasOwnProperty("color") && opts.color !== "" ? opts.color : viz.config.node_bg_color;
-	            viz.nodeDataMap[id].rx = opts.hasOwnProperty("radius") && opts.radius !== "" ? opts.radius : viz.config.node_radius;
-	            viz.nodeDataMap[id].opacity = opts.hasOwnProperty("opacity") ? opts.opacity : "";
-	            viz.nodeDataMap[id].position = opts.hasOwnProperty("position") ? opts.position : "";
-	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
-	            viz.nodeDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : "";
-	            viz.nodeDataMap[id].order = opts.hasOwnProperty("order") && opts.order !== "" ? opts.order : "50";
-
-	            // Check numeric values are actually numeric
-	            if (isNaN(viz.nodeDataMap[id].labelx)) {
-	                viz.nodeDataMap[id].labelx = "0";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].labely)) {
-	                viz.nodeDataMap[id].labely = "0";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].height)) {
-	                viz.nodeDataMap[id].height = 30;
-	            }
-	            if (isNaN(viz.nodeDataMap[id].width)) {
-	                viz.nodeDataMap[id].width = 120;
-	            }
-	            if (isNaN(viz.nodeDataMap[id].rx)) {
-	                viz.nodeDataMap[id].rx = "2";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].order)) {
-	                viz.nodeDataMap[id].order = "50";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].opacity)) {
-	                viz.nodeDataMap[id].opacity = "";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].xperc)) {
-	                viz.nodeDataMap[id].xperc = "";
-	            }
-	            if (isNaN(viz.nodeDataMap[id].yperc)) {
-	                viz.nodeDataMap[id].yperc = "";
-	            }
-
-	            viz.nodeDataMap[id].radius = Math.min(viz.nodeDataMap[id].height/2, viz.nodeDataMap[id].width/2) + Number(viz.config.node_border_width) + 1;
-	        },
-
-	        newLink: function(from, to, opts, isFromLink, isToLink){
-	            var viz = this;
-	            var id = from + "---" + to;
-	            // First time seeing this data
-	            if (! viz.linkDataMap.hasOwnProperty(id)){
-	                viz.linkDataMap[id] = {
-	                    timeouts: {},
-	                    intervals: {},
-	                    drawIteration: -1,
-	                };
-	                viz.linkData.push(viz.linkDataMap[id]);
-	            }
-	            // A link can occur multiple times in the data. More common in "path" style data definitions
-	            if (viz.linkDataMap[id].drawIteration !== viz.drawIteration) {
-	                // These cant change
-	                viz.linkDataMap[id].id = id;
-	                viz.linkDataMap[id].drawIteration = viz.drawIteration;
-	                viz.linkDataMap[id].source = from;
-	                viz.linkDataMap[id].target = to;
-	                // Set default values
-	                viz.linkDataMap[id].good = 0;
-	                viz.linkDataMap[id].warn = 0;
-	                viz.linkDataMap[id].error = 0;
-	                viz.linkDataMap[id].color = viz.config.link_color;
-	                viz.linkDataMap[id].width = viz.config.link_width;
-	                viz.linkDataMap[id].distance = viz.config.link_distance;
-	                viz.linkDataMap[id].speed = viz.config.link_speed;
-	                viz.linkDataMap[id].labelx = "0";
-	                viz.linkDataMap[id].labely = "0";
-	                viz.linkDataMap[id].sourcepoint = "";
-	                viz.linkDataMap[id].targetpoint = "";
-	                viz.linkDataMap[id].tooltip = null;
-	                viz.linkDataMap[id].label = null;
-	            }
-	            // If the link occurs multiple times in data, the good, warn, error values are summed together 
-	            viz.linkDataMap[id].good += opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
-	            viz.linkDataMap[id].warn += opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
-	            viz.linkDataMap[id].error += opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
-	            // These settings will only set the value if set in data. In case the same value is set multiple times, the last value will take effect
-	            viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.linkDataMap[id].color;
-	            viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.linkDataMap[id].width;
-	            viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.linkDataMap[id].distance;
-	            viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.linkDataMap[id].speed;
-	            viz.linkDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : viz.linkDataMap[id].labelx;
-	            viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : viz.linkDataMap[id].labely;
-	            viz.linkDataMap[id].sourcepoint = isFromLink && opts.hasOwnProperty("fromside") ? opts.fromside : viz.linkDataMap[id].sourcepoint;
-	            viz.linkDataMap[id].targetpoint = isToLink && opts.hasOwnProperty("toside") ? opts.toside : viz.linkDataMap[id].targetpoint;
-	            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") ? opts.tooltip : viz.linkDataMap[id].tooltip;
-	            viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : viz.linkDataMap[id].label;
-
-	            // Check numeric values are actually numeric
-	            if (isNaN(viz.linkDataMap[id].width)) {
-	                viz.linkDataMap[id].width = "1";
-	            }
-	            if (isNaN(viz.linkDataMap[id].distance)) {
-	                viz.linkDataMap[id].distance = "200";
-	            }
-	            if (isNaN(viz.linkDataMap[id].speed)) {
-	                viz.linkDataMap[id].speed = "90";
-	            }
-	            if (isNaN(viz.linkDataMap[id].labelx)) {
-	                viz.linkDataMap[id].labelx = "0";
-	            }
-	            if (isNaN(viz.linkDataMap[id].labely)) {
-	                viz.linkDataMap[id].labely = "0";
-	            }
-	        },
-
-	        // Add hander for dragging. Anything dragged will get a fixed position
-	        drag: function(simulation) {
-	            var viz = this;
-	            return d3.drag()
-	                .on("start", function(d) {
-	                    viz.activeParticles = [];
-	                    viz.isDragging = true;
-	                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-	                    d.fx = d.x;
-	                    d.fy = d.y;
-	                })
-	                .on("drag", function(d) {
-	                    d.fx = Math.round(d3.event.x / viz.config.containerWidth * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerWidth;
-	                    d.fy = Math.round(d3.event.y / viz.config.containerHeight * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerHeight;
-	                })
-	                .on("end", function(d) {
-	                    viz.isDragging = false;
-	                    viz.positions[d.id] = "" + (Math.round(d.fx / viz.config.containerWidth * viz.positionMultiplier) / (viz.positionMultiplier / 100)) + "," + (Math.round(d.fy / viz.config.containerHeight * viz.positionMultiplier) / (viz.positionMultiplier / 100));
-	                    // restart particles again
-	                    clearTimeout(viz.startParticlesTimeout);
-	                    viz.startParticlesTimeout = setTimeout(function(){
-	                        viz.startParticles();
-	                    }, viz.delayUntilParticles);
-	                    if (!d3.event.active) simulation.alphaTarget(0);
-	                    viz.positionsButton.css("opacity",1);
-	                    clearTimeout(viz.positionsButtonTimeout);
-	                    viz.positionsButtonTimeout = setTimeout(function(){
-	                        viz.positionsButton.css("opacity",0);
-	                    }, 10000);
-	                });
-	        },
-
-	        updatePositions: function() {
-	            var viz = this;
-	            // When stuff is dragged, or when the forces are being simulated, move items
-	            viz.nodeSelection
-	                .style("transform", function(d) {
-	                    // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
-	                    if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
-	                    d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
-	                    d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
-	                    // 5 is the padding
-	                    return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
-	                });
-
-	            viz.linkSelection
-	                .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
-	                .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; })
-	                .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
-	                .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; });
-
-	            viz.linkLabelSelection
-	                .style("transform", function(d) {
-	                    var minx = Math.min(d.sx, d.tx);
-	                    var maxx = Math.max(d.sx, d.tx);
-	                    var miny = Math.min(d.sy, d.ty);
-	                    var maxy = Math.max(d.sy, d.ty);
-	                    if (viz.config.new_labeling==="yes") {
-	                        return "translate(" + (((maxx - minx) * 0.5 + minx) + (Number(d.labelx) - (d.offsetWidth/2))) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
-	                    }
-	                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
-	                });
-	        },
-
-	        // Write the current position of elements to the console
-	        dumpPositions: function(){
-	            var viz = this;
-	            var dump = JSON.stringify(viz.positions);
-	            console.log(dump.substr(1,dump.length-2));
-	            viz.copyTextToClipboard(dump.substr(1,dump.length-2));
-	        },
-
-	        startParticles: function() {
-	            var viz = this;
-	            viz.stopAllParticles();
-	            if (viz.particleMultiplier === 0) {
-	                return;
-	            }
-	            for (var i = 0; i < viz.linkData.length; i++) {
-	                for (var particletype in viz.particleTypes) {
-	                    if (viz.particleTypes.hasOwnProperty(particletype)) {
-	                        viz.startParticleGroup(viz.linkData[i], particletype);
-	                    }
-	                }
-	            }
-	        },
-
-	        // Create circle particle creator, 
-	        // Each link can have three of these for good/warn/error particles
-	        startParticleGroup: function(link_details, particletype) {
-	            var viz = this;
-	            // No particles of this type
-	            if (link_details[particletype] <= 0) {
-	                return;
-	            }
-	            // calculate distance between two points
-	            var distance = Math.sqrt(Math.pow((link_details.tx) - (link_details.sx), 2) + 
-	                                     Math.pow((link_details.ty) - (link_details.sy), 2));
-
-	            // The duration needs to also consider the length of the line (ms per pixel)
-	            var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
-	            // add some jitter to the starting position
-	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
-	            base_jitter = Number(base_jitter);
-	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-	            link_details.timeouts[particletype] = setTimeout(function(){
-	                viz.doParticle(link_details, particletype, base_time, base_jitter);
-	                // Start an ongoing timer for this particle
-	                link_details.intervals[particletype] = setInterval(function(){
-	                    viz.doParticle(link_details, particletype, base_time, base_jitter);
-	                }, particle_dispatch_delay);
-	            }, (Math.random() * particle_dispatch_delay));
-	        },
-
-	        // Creates the actual particle, transition it with random speed and destroy it.
-	        doParticle: function(link_details, particletype, base_time, base_jitter){
-	            var viz = this;
-	            // Do not start particles until stuff slows its movement
-	            if (viz.isDragging) { return; }
-	            // if browser window isnt visible then dont draw
-	            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
-	                return;
-	            }
-	            var jitter1 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
-	            var jitter2 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
-	            if (viz.config.renderer === "canvas") {
-	                if (link_details.hasOwnProperty("sx")) {
-	                    viz.activeParticles.push({
-	                        sx: (jitter1 + link_details.sx),
-	                        sy: (jitter2 + link_details.sy),
-	                        tx: (jitter1 + link_details.tx),
-	                        ty: (jitter2 + link_details.ty),
-	                        color: viz.particleTypes[particletype],
-	                        duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
-	                    });
-	                }
-	            }
-	        },
-
-	        updateCanvas: function() {
-	            var viz = this;
-	            var now = (new Date).getTime();
-	            viz.lastDraw = now;
-	            var i,x,y,p,t;
-	            var deletes = [];
-	            viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
-	            for (i = 0; i < viz.activeParticles.length; i++) {
-	                p = viz.activeParticles[i];
-	                if (! p.hasOwnProperty("start")) {
-	                    p.start = now;
-	                }
-	                t = ((now - p.start) / p.duration);
-	                if (t > 1) {
-	                    deletes.push(i);
-	                    continue;
-	                }
-	                x = Math.floor(p.sx * (1 - t) + p.tx * t);
-	                y = Math.floor(p.sy * (1 - t) + p.ty * t);
-	                viz.context.beginPath();
-	                if (viz.config.particle_blur !== "0") {
-	                    viz.context.shadowColor = p.color;
-	                    viz.context.shadowBlur = viz.config.particle_blur;
-	                    viz.context.shadowOffsetX = 0;
-	                    viz.context.shadowOffsetY = 0;
-	                }
-	                viz.context.moveTo(x + viz.config.particle_size, y);
-	                viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
-	                viz.context.fillStyle = p.color;
-	                viz.context.fill();
-	            }
-	            for (i = deletes.length - 1; i >= 0; i--) {
-	                viz.activeParticles.splice(deletes[i], 1);
-	            }
-	        },
-
-	        stopAllParticles: function() {
-	            var viz = this;
-	            if (viz.hasOwnProperty("linkData")) {
-	                for (var i = 0; i < viz.linkData.length; i++) {
-	                    viz.stopParticles(viz.linkData[i]);
-	                }
-	            }
-	        },
-
-	        stopParticles: function(link_details) {
-	            var viz = this;
-	            for (var particletype in viz.particleTypes) {
-	                if (viz.particleTypes.hasOwnProperty(particletype)) {
-	                    clearTimeout(link_details.timeouts[particletype]);
-	                    clearInterval(link_details.intervals[particletype]);
-	                }
-	            }
-	        },
-
-	        doRemove: function(){
-	            var viz = this;
-	            delete viz.drawIteration;
-	            viz.stopAllParticles();
-	        },
-
-	        antAnimate: function(path) {
-	            var viz = this;
-	            path.filter(function(d){ return Number(d.speed) !== 0; })
-	                .transition()
-	                .duration(function(d){ return 100 * (101 - Math.max(1, Math.min(100, Number(d.speed)))); })
-	                .ease(d3.easeLinear)
-	                .attr("stroke-dashoffset", "0")
-	                .on("end", function() { 
-	                    d3.select(this)
-	                        .attr("stroke-dashoffset", function(d) { return (d.width * 5); })
-	                        .call(function(p) { viz.antAnimate(p); });
-	                });
-	        },
-
-	        getShadow: function(d) {
-	            var viz = this;
-	            var clr = "";
-	            if (viz.config.node_shadow_mode === "disabled"){
-	                return null;
-	            } else if (viz.config.node_shadow_mode === "darker1"){
-	                clr = tinycolor(d.color).darken(10).toString();
-	            } else if (viz.config.node_shadow_mode === "darker2"){
-	                clr = tinycolor(d.color).darken(20).toString();
-	            } else {
-	                clr = viz.config.node_shadow_color;
-	            }
-	            return "0 3px 6px " + tinycolor(clr).setAlpha(0.16).toRgbString() + ", 0 3px 6px " + tinycolor(clr).setAlpha(0.23).toRgbString();
-	        },
-
-	        doDraw: function() {
-	            var viz = this;
-	            var invalidRows = 0;
-	            var nodeOrder = 1;
-	            var nodesLoose = {};
-	            var pathParts;
-	            var i, j, k, l, attach;
-
-	            // Dont draw unless this is a real element under body
-	            if (! viz.$container_wrap.parents().is("body")) {
-	                return;
-	            }
-	            if (viz.$container_wrap.height() <= 0) {
-	                return;
-	            }
 
 	            // Keep track of the container size the config used so we know if we need to redraw the whole page
 	            viz.config.containerHeight = viz.$container_wrap.height();
@@ -553,10 +197,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.linkDataMap = {};
 	                viz.nodeData = [];
 	                viz.linkData = [];
-	                viz.delayUntilParticles = 2000;
+	                viz.delayUntilParticles = 1000;
 	                viz.isDragging = false;
 	                viz.activeParticles = [];
-	                viz.lastDraw = 0;
 	            }
 
 	            // loop through data
@@ -708,7 +351,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            }
 
 	            // Sort the lists back into the order it arrived
-	            viz.nodeData.sort(function(a,b){
+	            viz.nodeData.sort(function(a,b) {
 	                return a.dataorder - b.dataorder;
 	            });
 
@@ -729,7 +372,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.$container_wrap.empty().append("<div class='flow_map_viz-bad_data'>Too many nodes in data (Total nodes:" + viz.nodeData.length + ", Limit: " + viz.config.maxnodes + "). The limit can be changed in the format menu. </div>");
 	                return;
 	            }
-
 	            // Add SVG to the page
 	            if (viz.drawIteration === 1) {
 	                if (viz.config.coarse_positions === "yes") {
@@ -752,7 +394,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    viz.timer.stop(); 
 	                } 
 	                viz.$container_wrap.append(viz.svg.node());
-	                if (viz.config.renderer === "canvas") {
+	                //if (viz.config.renderer === "canvas") {
 	                    viz.canvas = d3.create("canvas")
 	                        .attr("class", "flow_map_viz-canvas")
 	                        .attr("width", viz.config.containerWidth)
@@ -762,7 +404,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    viz.timer = d3.timer(function() {
 	                        viz.updateCanvas();
 	                    });
-	                }
+	                //}
 
 	                // Add groups in the correct order for layering
 	                viz.linkGroup = viz.svg.append("g")
@@ -1016,6 +658,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    });
 
 	            // redo particles
+	            //console.log("finishing update");
 	            clearTimeout(viz.startParticlesTimeout);
 	            viz.startParticlesTimeout = setTimeout(function(){
 	                viz.startParticles();
@@ -1027,6 +670,368 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            viz.simulation.force("link").links(viz.linkData);
 	            viz.updatePositions();
 	            viz.simulation.alpha(0.3).restart();
+	        },
+
+
+	        // read a row of input data and put it into a normalisaed object
+	        newNode: function(id, opts, dataorder){
+	            var viz = this;
+	            if (! viz.nodeDataMap.hasOwnProperty(id)){
+	                viz.nodeDataMap[id] = {};
+	                viz.nodeData.push(viz.nodeDataMap[id]);
+	            }
+	            // if the node has already been updated this run then dont update it again (i.e. its a loose node)
+	            if (viz.nodeDataMap[id].drawIteration === viz.drawIteration) {
+	                return;
+	            }
+	            // It doesnt make sense for a "node" row to be specified multiple times
+	            viz.nodeDataMap[id].id = id;
+	            viz.nodeDataMap[id].drawIteration = viz.drawIteration;
+	            viz.nodeDataMap[id].dataorder = dataorder;
+	            viz.nodeDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : id;
+	            viz.nodeDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : "0";
+	            viz.nodeDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labelx !== "" ? opts.labely : "0";
+	            viz.nodeDataMap[id].height = opts.hasOwnProperty("height") && opts.height !== "" ? Number(opts.height) : Number(viz.config.node_height);
+	            viz.nodeDataMap[id].width = opts.hasOwnProperty("width") && opts.width !== "" ? Number(opts.width) : Number(viz.config.node_width);
+	            viz.nodeDataMap[id].color = opts.hasOwnProperty("color") && opts.color !== "" ? opts.color : viz.config.node_bg_color;
+	            viz.nodeDataMap[id].rx = opts.hasOwnProperty("radius") && opts.radius !== "" ? opts.radius : viz.config.node_radius;
+	            viz.nodeDataMap[id].opacity = opts.hasOwnProperty("opacity") ? opts.opacity : "";
+	            viz.nodeDataMap[id].position = opts.hasOwnProperty("position") ? opts.position : "";
+	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
+	            viz.nodeDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : "";
+	            viz.nodeDataMap[id].order = opts.hasOwnProperty("order") && opts.order !== "" ? opts.order : "50";
+
+	            // Check numeric values are actually numeric
+	            if (isNaN(viz.nodeDataMap[id].labelx)) {
+	                viz.nodeDataMap[id].labelx = "0";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].labely)) {
+	                viz.nodeDataMap[id].labely = "0";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].height)) {
+	                viz.nodeDataMap[id].height = 30;
+	            }
+	            if (isNaN(viz.nodeDataMap[id].width)) {
+	                viz.nodeDataMap[id].width = 120;
+	            }
+	            if (isNaN(viz.nodeDataMap[id].rx)) {
+	                viz.nodeDataMap[id].rx = "2";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].order)) {
+	                viz.nodeDataMap[id].order = "50";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].opacity)) {
+	                viz.nodeDataMap[id].opacity = "";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].xperc)) {
+	                viz.nodeDataMap[id].xperc = "";
+	            }
+	            if (isNaN(viz.nodeDataMap[id].yperc)) {
+	                viz.nodeDataMap[id].yperc = "";
+	            }
+
+	            viz.nodeDataMap[id].radius = Math.min(viz.nodeDataMap[id].height/2, viz.nodeDataMap[id].width/2) + Number(viz.config.node_border_width) + 1;
+	        },
+
+	        newLink: function(from, to, opts, isFromLink, isToLink){
+	            var viz = this;
+	            var id = from + "---" + to;
+	            // First time seeing this data
+	            if (! viz.linkDataMap.hasOwnProperty(id)){
+	                viz.linkDataMap[id] = {
+	                    timeouts: {},
+	                    intervals: {},
+	                    drawIteration: -1,
+	                };
+	                viz.linkData.push(viz.linkDataMap[id]);
+	            }
+	            // A link can occur multiple times in the data. More common in "path" style data definitions
+	            if (viz.linkDataMap[id].drawIteration !== viz.drawIteration) {
+	                // These cant change
+	                viz.linkDataMap[id].id = id;
+	                viz.linkDataMap[id].drawIteration = viz.drawIteration;
+	                viz.linkDataMap[id].source = from;
+	                viz.linkDataMap[id].target = to;
+	                // Set default values
+	                viz.linkDataMap[id].good = 0;
+	                viz.linkDataMap[id].warn = 0;
+	                viz.linkDataMap[id].error = 0;
+	                viz.linkDataMap[id].color = viz.config.link_color;
+	                viz.linkDataMap[id].width = viz.config.link_width;
+	                viz.linkDataMap[id].distance = viz.config.link_distance;
+	                viz.linkDataMap[id].speed = viz.config.link_speed;
+	                viz.linkDataMap[id].labelx = "0";
+	                viz.linkDataMap[id].labely = "0";
+	                viz.linkDataMap[id].sourcepoint = "";
+	                viz.linkDataMap[id].targetpoint = "";
+	                viz.linkDataMap[id].tooltip = null;
+	                viz.linkDataMap[id].label = null;
+	            }
+	            // If the link occurs multiple times in data, the good, warn, error values are summed together 
+	            viz.linkDataMap[id].good += opts.hasOwnProperty("good") && ! isNaN(opts.good) ? Number(opts.good) : 0;
+	            viz.linkDataMap[id].warn += opts.hasOwnProperty("warn") && ! isNaN(opts.warn) ? Number(opts.warn) : 0;
+	            viz.linkDataMap[id].error += opts.hasOwnProperty("error") && ! isNaN(opts.error) ? Number(opts.error) : 0;
+	            // These settings will only set the value if set in data. In case the same value is set multiple times, the last value will take effect
+	            viz.linkDataMap[id].color = opts.hasOwnProperty("color") ? opts.color : viz.linkDataMap[id].color;
+	            viz.linkDataMap[id].width = opts.hasOwnProperty("width") ? opts.width : viz.linkDataMap[id].width;
+	            viz.linkDataMap[id].distance = opts.hasOwnProperty("distance") ? opts.distance : viz.linkDataMap[id].distance;
+	            viz.linkDataMap[id].speed = opts.hasOwnProperty("speed") ? opts.speed : viz.linkDataMap[id].speed;
+	            viz.linkDataMap[id].labelx = opts.hasOwnProperty("labelx") && opts.labelx !== "" ? opts.labelx : viz.linkDataMap[id].labelx;
+	            viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : viz.linkDataMap[id].labely;
+	            viz.linkDataMap[id].sourcepoint = isFromLink && opts.hasOwnProperty("fromside") ? opts.fromside : viz.linkDataMap[id].sourcepoint;
+	            viz.linkDataMap[id].targetpoint = isToLink && opts.hasOwnProperty("toside") ? opts.toside : viz.linkDataMap[id].targetpoint;
+	            viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") ? opts.tooltip : viz.linkDataMap[id].tooltip;
+	            viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : viz.linkDataMap[id].label;
+
+	            // Check numeric values are actually numeric
+	            if (isNaN(viz.linkDataMap[id].width)) {
+	                viz.linkDataMap[id].width = "1";
+	            }
+	            if (isNaN(viz.linkDataMap[id].distance)) {
+	                viz.linkDataMap[id].distance = "200";
+	            }
+	            if (isNaN(viz.linkDataMap[id].speed)) {
+	                viz.linkDataMap[id].speed = "90";
+	            }
+	            if (isNaN(viz.linkDataMap[id].labelx)) {
+	                viz.linkDataMap[id].labelx = "0";
+	            }
+	            if (isNaN(viz.linkDataMap[id].labely)) {
+	                viz.linkDataMap[id].labely = "0";
+	            }
+	        },
+
+	        // Add hander for dragging. Anything dragged will get a fixed position
+	        drag: function(simulation) {
+	            var viz = this;
+	            return d3.drag()
+	                .on("start", function(d) {
+	                    viz.activeParticles = [];
+	                    viz.isDragging = true;
+	                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+	                    d.fx = d.x;
+	                    d.fy = d.y;
+	                })
+	                .on("drag", function(d) {
+	                    d.fx = Math.round(d3.event.x / viz.config.containerWidth * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerWidth;
+	                    d.fy = Math.round(d3.event.y / viz.config.containerHeight * viz.positionMultiplier) / viz.positionMultiplier * viz.config.containerHeight;
+	                })
+	                .on("end", function(d) {
+	                    viz.isDragging = false;
+	                    viz.positions[d.id] = "" + (Math.round(d.fx / viz.config.containerWidth * viz.positionMultiplier) / (viz.positionMultiplier / 100)) + "," + (Math.round(d.fy / viz.config.containerHeight * viz.positionMultiplier) / (viz.positionMultiplier / 100));
+	                    // restart particles again
+	                    clearTimeout(viz.startParticlesTimeout);
+	                    viz.startParticlesTimeout = setTimeout(function(){
+	                        viz.startParticles();
+	                    }, viz.delayUntilParticles);
+	                    if (!d3.event.active) simulation.alphaTarget(0);
+	                    viz.positionsButton.css("opacity",1);
+	                    clearTimeout(viz.positionsButtonTimeout);
+	                    viz.positionsButtonTimeout = setTimeout(function(){
+	                        viz.positionsButton.css("opacity",0);
+	                    }, 10000);
+	                });
+	        },
+
+	        updatePositions: function() {
+	            var viz = this;
+	            // When stuff is dragged, or when the forces are being simulated, move items
+	            viz.nodeSelection
+	                .style("transform", function(d) {
+	                    // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
+	                    if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
+	                    d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
+	                    d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
+	                    // 5 is the padding
+	                    return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
+	                });
+
+	            viz.linkSelection
+	                .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
+	                .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; })
+	                .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
+	                .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; });
+
+	            viz.linkLabelSelection
+	                .style("transform", function(d) {
+	                    var minx = Math.min(d.sx, d.tx);
+	                    var maxx = Math.max(d.sx, d.tx);
+	                    var miny = Math.min(d.sy, d.ty);
+	                    var maxy = Math.max(d.sy, d.ty);
+	                    if (viz.config.new_labeling==="yes") {
+	                        return "translate(" + (((maxx - minx) * 0.5 + minx) + (Number(d.labelx) - (d.offsetWidth/2))) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
+	                    }
+	                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
+	                });
+	        },
+
+	        // Write the current position of elements to the console
+	        dumpPositions: function(){
+	            var viz = this;
+	            var dump = JSON.stringify(viz.positions);
+	            console.log(dump.substr(1,dump.length-2));
+	            viz.copyTextToClipboard(dump.substr(1,dump.length-2));
+	        },
+
+	        startParticles: function() {
+	            var viz = this;
+	            viz.stopAllParticles();
+	            if (viz.particleMultiplier === 0) {
+	                return;
+	            }
+	            for (var i = 0; i < viz.linkData.length; i++) {
+	                for (var particletype in viz.particleTypes) {
+	                    if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                        viz.startParticleGroup(viz.linkData[i], particletype);
+	                    }
+	                }
+	            }
+	        },
+
+	        // Create circle particle creator, 
+	        // Each link can have three of these for good/warn/error particles
+	        startParticleGroup: function(link_details, particletype) {
+	            var viz = this;
+	            // No particles of this type
+	            if (link_details[particletype] <= 0) {
+	                return;
+	            }
+	            // calculate distance between two points
+	            var distance = Math.sqrt(Math.pow((link_details.tx) - (link_details.sx), 2) + 
+	                                     Math.pow((link_details.ty) - (link_details.sy), 2));
+
+	            // The duration needs to also consider the length of the line (ms per pixel)
+	            var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
+	            // add some jitter to the starting position
+	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
+	            base_jitter = Number(base_jitter);
+	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
+	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+	            link_details.timeouts[particletype] = setTimeout(function(){
+	                viz.doParticle(link_details, particletype, base_time, base_jitter);
+	                // Start an ongoing timer for this particle
+	                link_details.intervals[particletype] = setInterval(function(){
+	                    viz.doParticle(link_details, particletype, base_time, base_jitter);
+	                }, particle_dispatch_delay);
+	            }, (Math.random() * particle_dispatch_delay));
+	        },
+
+	        // Creates the actual particle, transition it with random speed and it will be destroyed when it gets to the end
+	        doParticle: function(link_details, particletype, base_time, base_jitter){
+	            var viz = this;
+	            // Do not start particles until stuff slows its movement
+	            if (viz.isDragging) { return; }
+	            // if browser window isnt visible then dont draw
+	            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
+	                return;
+	            }
+	            var jitter1 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
+	            var jitter2 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
+	            //if (viz.config.renderer === "canvas") {
+	                // TODO if just updated dont add anything new for a bit
+	                //console.log("adding new particle");
+	                if (link_details.hasOwnProperty("sx")) {
+	                    viz.activeParticles.push({
+	                        sx: (jitter1 + link_details.sx),
+	                        sy: (jitter2 + link_details.sy),
+	                        tx: (jitter1 + link_details.tx),
+	                        ty: (jitter2 + link_details.ty),
+	                        color: viz.particleTypes[particletype],
+	                        duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
+	                    });
+	                }
+	            //}
+	        },
+
+	        updateCanvas: function() {
+	            var viz = this;
+	            var now = (new Date).getTime();
+	            var i,x,y,p,t;
+	            var deletes = []; 
+	            //console.log(viz.instance_id, "activeparticles=", viz.activeParticles.length);
+	            viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
+	            for (i = 0; i < viz.activeParticles.length; i++) {
+	                p = viz.activeParticles[i];
+	                if (! p.hasOwnProperty("start")) {
+	                    p.start = now;
+	                }
+	                t = ((now - p.start) / p.duration);
+	                // if made it to the end
+	                if (t > 1) {
+	                    deletes.push(i);
+	                    continue;
+	                }
+	                x = Math.floor(p.sx * (1 - t) + p.tx * t);
+	                y = Math.floor(p.sy * (1 - t) + p.ty * t);
+	                viz.context.beginPath();
+	                if (viz.config.particle_blur !== "0") {
+	                    viz.context.shadowColor = p.color;
+	                    viz.context.shadowBlur = viz.config.particle_blur;
+	                    viz.context.shadowOffsetX = 0;
+	                    viz.context.shadowOffsetY = 0;
+	                }
+	                viz.context.moveTo(x + viz.config.particle_size, y);
+	                viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
+	                viz.context.fillStyle = p.color;
+	                viz.context.fill();
+	            }
+	            for (i = deletes.length - 1; i >= 0; i--) {
+	                viz.activeParticles.splice(deletes[i], 1);
+	            }
+	        },
+
+	        stopAllParticles: function() {
+	            var viz = this;
+	            if (viz.hasOwnProperty("linkData")) {
+	                for (var i = 0; i < viz.linkData.length; i++) {
+	                    viz.stopParticles(viz.linkData[i]);
+	                }
+	            }
+	        },
+
+	        stopParticles: function(link_details) {
+	            var viz = this;
+	            for (var particletype in viz.particleTypes) {
+	                if (viz.particleTypes.hasOwnProperty(particletype)) {
+	                    clearTimeout(link_details.timeouts[particletype]);
+	                    clearInterval(link_details.intervals[particletype]);
+	                }
+	            }
+	        },
+
+	        doRemove: function(){
+	            var viz = this;
+	            delete viz.drawIteration;
+	            viz.stopAllParticles();
+	        },
+
+	        antAnimate: function(path) {
+	            var viz = this;
+	            path.filter(function(d){ return Number(d.speed) !== 0; })
+	                .transition()
+	                .duration(function(d){ return 100 * (101 - Math.max(1, Math.min(100, Number(d.speed)))); })
+	                .ease(d3.easeLinear)
+	                .attr("stroke-dashoffset", "0")
+	                .on("end", function() { 
+	                    d3.select(this)
+	                        .attr("stroke-dashoffset", function(d) { return (d.width * 5); })
+	                        .call(function(p) { viz.antAnimate(p); });
+	                });
+	        },
+
+	        getShadow: function(d) {
+	            var viz = this;
+	            var clr = "";
+	            if (viz.config.node_shadow_mode === "disabled"){
+	                return null;
+	            } else if (viz.config.node_shadow_mode === "darker1"){
+	                clr = tinycolor(d.color).darken(10).toString();
+	            } else if (viz.config.node_shadow_mode === "darker2"){
+	                clr = tinycolor(d.color).darken(20).toString();
+	            } else {
+	                clr = viz.config.node_shadow_color;
+	            }
+	            return "0 3px 6px " + tinycolor(clr).setAlpha(0.16).toRgbString() + ", 0 3px 6px " + tinycolor(clr).setAlpha(0.23).toRgbString();
 	        },
 
 	        copyTextToClipboard: function(text) {
