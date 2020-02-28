@@ -76,9 +76,10 @@
     align-items: center;
     justify-content: center;
     text-align: center;
+}
+.flow_map_viz-setwidth {
     width: 200px;
 }
-
 
 
 

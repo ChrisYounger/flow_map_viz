@@ -87,6 +87,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                labels_as_html: "no",
 	                background_mode: "custom",
 	                background_color: "#ffffff",
+	                new_labeling: "yes",
 	                renderer: "canvas",
 	                width: "",
 
@@ -326,16 +327,19 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	            viz.linkSelection
 	                .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
-	                .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; }) 
+	                .attr("y1", function(d){ d.sy = (d.source.y || 0) + d.sy_mod; return d.sy; })
 	                .attr("x2", function(d){ d.tx = (d.target.x || 0) + d.tx_mod; return d.tx; })
-	                .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; }); 
+	                .attr("y2", function(d){ d.ty = (d.target.y || 0) + d.ty_mod; return d.ty; });
 
 	            viz.linkLabelSelection
 	                .style("transform", function(d) {
 	                    var minx = Math.min(d.sx, d.tx);
 	                    var maxx = Math.max(d.sx, d.tx);
 	                    var miny = Math.min(d.sy, d.ty);
-	                    var maxy = Math.max(d.sy, d.ty); 
+	                    var maxy = Math.max(d.sy, d.ty);
+	                    if (viz.config.new_labeling==="yes") {
+	                        return "translate(" + (((maxx - minx) * 0.5 + minx) + (Number(d.labelx) - (d.offsetWidth/2))) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
+	                    }
 	                    return "translate(" + ((maxx - minx) * 0.5 + minx) + "px," + ((maxy - miny) * 0.5 + miny - (viz.config.link_text_size * 0.3)) + "px)";
 	                });
 	        },
@@ -768,7 +772,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.linkLabelGroup = d3.create("div")
 	                    .style("font", viz.config.link_text_size + "px sans-serif")
 	                    .style("color", viz.config.link_label_color)
-	                    .attr("class", "flow_map_viz-linklabels");
+	                    .attr("class", "flow_map_viz-linklabels" + (viz.config.new_labeling==="yes" ? " flow_map_viz-setwidth" : ""));
 	                viz.nodeGroup = d3.create("div")
 	                    .style("font", viz.config.node_text_size + "px sans-serif")
 	                    .style("color", viz.config.node_text_color)
@@ -994,13 +998,22 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                .data(viz.linkData, function(d){ return d.id; })
 	                .join("div")
 	                    .attr("class", "flow_map_viz-linklabel")
-	                    .style("left", function(d){ return Number(d.labelx) - 100 + "px";})
+	                    .style("visibility", "hidden")
 	                    .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
 	                    .attr("title", function(d) { return d.tooltip; })
 	                    .style("text-shadow", function(d){
 	                        return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
 	                    })
-	                    .html(function(d) { return d.label; });
+	                    .html(function(d) { return d.label; })
+	                    .each(function(d){
+	                        var node = this;
+	                        d.offsetWidth = node.offsetWidth;
+	                        if (viz.config.new_labeling!=="yes") {
+	                            node.classList.add("flow_map_viz-setwidth");
+	                            node.style.left =  Number(d.labelx) - 100 + "px";
+	                        }
+	                        node.style.visibility = "";
+	                    });
 
 	            // redo particles
 	            clearTimeout(viz.startParticlesTimeout);
