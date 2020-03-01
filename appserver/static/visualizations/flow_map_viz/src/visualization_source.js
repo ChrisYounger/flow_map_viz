@@ -32,13 +32,13 @@ function(
 
         updateView: function(data, config) {
             var viz = this;
+            if (typeof data === "undefined") { return; }
             viz.scheduleDraw(data, config);
         },
 
         // debounce the draw
         scheduleDraw: function(data, config){
             var viz = this;
-            if (typeof data === "undefined") { return; }
             clearTimeout(viz.drawtimeout);
             viz.drawtimeout = setTimeout(function(){
                 viz.doDraw(data, config);
@@ -52,9 +52,6 @@ function(
             var nodesLoose = {};
             var pathParts;
             var i, j, k, l, attach;
-            $(window).off("resize.flow_map_viz").on("resize.flow_map_viz", function () {
-                viz.scheduleDraw(in_data, in_config);
-            });
 
             // Dont draw unless this is a real element under body
             if (! viz.$container_wrap.parents().is("body")) {
@@ -66,57 +63,62 @@ function(
                 return;
             }
 
-            viz.data = in_data;
+            // in_data might be blank if the reflow method was called
+            if (typeof in_data !== "undefined") {
+                viz.data = in_data;
+                viz.config = {
+                    maxnodes: "100",
+                    stop_when_not_visible: "yes",
+                    node_repel_force: "1000",
+                    node_center_force: "0.1",
+                    positions: "",
+                    coarse_positions: "yes",
+                    labels_as_html: "no",
+                    background_mode: "custom",
+                    background_color: "#ffffff",
+                    new_labeling: "yes",
+                    //renderer: "canvas",
+                    width: "",
 
-            viz.config = {
-                maxnodes: "100",
-                stop_when_not_visible: "yes",
-                node_repel_force: "1000",
-                node_center_force: "0.1",
-                positions: "",
-                coarse_positions: "yes",
-                labels_as_html: "no",
-                background_mode: "custom",
-                background_color: "#ffffff",
-                new_labeling: "yes",
-                //renderer: "canvas",
-                width: "",
+                    link_speed: "90",
+                    link_opacity: "0.5",
+                    link_distance: "200",
+                    link_width: "1",
+                    link_color: "#cccccc",
+                    link_label_color: "#000000",
+                    link_text_size: "10",
+                    line_style: "solid",
 
-                link_speed: "90",
-                link_opacity: "0.5",
-                link_distance: "200",
-                link_width: "1",
-                link_color: "#cccccc",
-                link_label_color: "#000000",
-                link_text_size: "10",
-                line_style: "solid",
+                    particle_limit: "60",
+                    particle_domain: "",
+                    particle_good_color: "#1a9035",
+                    particle_warn_color: "#d16f18",
+                    particle_error_color: "#b22b32",
+                    particle_spread: "5",
+                    particle_size: "3",
+                    particle_blur: "0",
 
-                particle_limit: "60",
-                particle_domain: "",
-                particle_good_color: "#1a9035",
-                particle_warn_color: "#d16f18",
-                particle_error_color: "#b22b32",
-                particle_spread: "5",
-                particle_size: "3",
-                particle_blur: "0",
-
-                node_width: "120",
-                node_height: "30",
-                node_bg_color: "#cccccc",
-                node_border_color: "#000000",
-                node_border_mode: "darker1",
-                node_border_width: "1",
-                node_shadow_mode: "custom",
-                node_shadow_color: "#000000",
-                node_text_color: "#000000",
-                node_text_size: "12",
-                node_radius: "2",
-            };
-            // Override defaults with selected items from the UI
-            for (var opt in in_config) {
-                if (in_config.hasOwnProperty(opt)) {
-                    viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = in_config[opt];
+                    node_width: "120",
+                    node_height: "30",
+                    node_bg_color: "#cccccc",
+                    node_border_color: "#000000",
+                    node_border_mode: "darker1",
+                    node_border_width: "1",
+                    node_shadow_mode: "custom",
+                    node_shadow_color: "#000000",
+                    node_text_color: "#000000",
+                    node_text_size: "12",
+                    node_radius: "2",
+                };
+                // Override defaults with selected items from the UI
+                for (var opt in in_config) {
+                    if (in_config.hasOwnProperty(opt)) {
+                        viz.config[ opt.replace(viz.getPropertyNamespaceInfo().propertyNamespace,'') ] = in_config[opt];
+                    }
                 }
+                $(window).off("resize.flow_map_viz").on("resize.flow_map_viz", function () {
+                    viz.scheduleDraw(in_data, in_config);
+                });
             }
 
             viz.particleTypes = {
@@ -902,23 +904,36 @@ function(
             var viz = this;
             var now = (new Date).getTime();
             var i,x,y,p,t;
-            var deletes = []; 
-            //console.log(viz.instance_id, "activeparticles=", viz.activeParticles.length);
+            var deletes = [];
+            var prevcolor = null;
+            // This could be optimised to only clear a line of pixels between the start and end point 
+            // instead of doing a clearRect on the whole canvas. however this wouldnt be a huge benefit
             viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
             for (i = 0; i < viz.activeParticles.length; i++) {
                 p = viz.activeParticles[i];
+                // Try to reduce the amount of context switches by batching where possible.
+                // this could be more efficient if we did all good, then all warn then all errors
+                // however this would mean the errors are always layered on top and we want them interleaved.
+                if (prevcolor !== null && p.color !== prevcolor) {
+                    viz.context.fillStyle = prevcolor;
+                    viz.context.fill();
+                    viz.context.beginPath();
+                }
+                if (prevcolor === null) {
+                    viz.context.beginPath();
+                }
+                prevcolor = p.color;
                 if (! p.hasOwnProperty("start")) {
                     p.start = now;
                 }
                 t = ((now - p.start) / p.duration);
-                // if made it to the end
+                // if particle made it to the end
                 if (t > 1) {
                     deletes.push(i);
                     continue;
                 }
                 x = Math.floor(p.sx * (1 - t) + p.tx * t);
                 y = Math.floor(p.sy * (1 - t) + p.ty * t);
-                viz.context.beginPath();
                 if (viz.config.particle_blur !== "0") {
                     viz.context.shadowColor = p.color;
                     viz.context.shadowBlur = viz.config.particle_blur;
@@ -927,7 +942,8 @@ function(
                 }
                 viz.context.moveTo(x + viz.config.particle_size, y);
                 viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
-                viz.context.fillStyle = p.color;
+            }
+            if (prevcolor !== null) {
                 viz.context.fill();
             }
             for (i = deletes.length - 1; i >= 0; i--) {
