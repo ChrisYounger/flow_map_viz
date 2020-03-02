@@ -47,8 +47,6 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO:
 	// Add arrow mode
 	// highlight link/nodes/labels on hover (dim particles and other links).
-	// Add webgl shader option: https://bl.ocks.org/pbeshai/28c7f3acdde4ca5a13854f06c5d7e334
-	// Allow backlinks
 
 	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 	    __webpack_require__(1),
@@ -164,22 +162,6 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    viz.scheduleDraw(in_data, in_config);
 	                });
 	            }
-
-	            if (viz.config.renderer === "canvas") {
-	                viz.particleTypes = {
-	                    good:  viz.config.particle_good_color,
-	                    warn:  viz.config.particle_warn_color,
-	                    error: viz.config.particle_error_color,
-	                };
-	            } else {
-	                // store colors as hex numerics
-	                viz.particleTypes = {
-	                    good:  +("0x" + tinycolor(viz.config.particle_good_color).toHex()),
-	                    warn:  +("0x" + tinycolor(viz.config.particle_warn_color).toHex()),
-	                    error: +("0x" + tinycolor(viz.config.particle_error_color).toHex()),
-	                };
-	            }
-
 
 	            // Keep track of the container size the config used so we know if we need to redraw the whole page
 	            viz.config.containerHeight = viz.$container_wrap.height();
@@ -409,7 +391,17 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    }
 	                } 
 	                viz.$container_wrap.append(viz.svg.node());
-	                if (viz.config.renderer === "webgl") {
+
+	                // we use our own fallback to canvas instead of the pixi one
+	                if  (viz.config.renderer === "webgl" && PIXI.utils.isWebGLSupported()) {
+	                    viz.renderWebGL = true;
+	                    // store colors as hex numerics
+	                    viz.particleTypes = {
+	                        good:  +("0x" + tinycolor(viz.config.particle_good_color).toHex()),
+	                        warn:  +("0x" + tinycolor(viz.config.particle_warn_color).toHex()),
+	                        error: +("0x" + tinycolor(viz.config.particle_error_color).toHex()),
+	                    };
+
 	                    viz.app = new PIXI.Application({ antialias: true, transparent: true, width: viz.config.containerWidth, height: viz.config.containerHeight });
 	                    viz.$container_wrap.append( viz.app.view );
 	                    var gr = new PIXI.Graphics();
@@ -426,14 +418,14 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    viz.timer = viz.app.ticker.add(function(delta){
 	                        viz.updateWebGL();
 	                    });
-	                    //console.log("isWebGLSupported=", PIXI.utils.isWebGLSupported()); //true
-	                    // if (viz.app.type == PIXI.WEBGL_RENDERER){
-	                    //     console.log('Using WebGL');
-	                    // } else {
-	                    //     console.log('Using fallback Canvas');
-	                    // };
 
 	                } else {
+	                    // store colors as strings
+	                    viz.particleTypes = {
+	                        good:  viz.config.particle_good_color,
+	                        warn:  viz.config.particle_warn_color,
+	                        error: viz.config.particle_error_color,
+	                    };
 	                    viz.canvas = d3.create("canvas")
 	                        .attr("class", "flow_map_viz-canvas")
 	                        .attr("width", viz.config.containerWidth)
@@ -843,7 +835,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            var viz = this;
 	            return d3.drag()
 	                .on("start", function(d) {
-	                    if (viz.config.renderer === "webgl") {
+	                    if (viz.renderWebGL) {
 	                        for (var i = 0; i < viz.activeParticles.length; i++) {
 	                            viz.activeParticles[i].sprite.destroy();
 	                        }
