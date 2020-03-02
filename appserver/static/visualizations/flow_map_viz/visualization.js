@@ -1,4 +1,4 @@
-define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(__WEBPACK_EXTERNAL_MODULE_1__, __WEBPACK_EXTERNAL_MODULE_2__) { return /******/ (function(modules) { // webpackBootstrap
+define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) { return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
 
@@ -54,11 +54,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	    __webpack_require__(1),
 	    __webpack_require__(2),
 	    __webpack_require__(3),
-	    __webpack_require__(4),
-	    __webpack_require__(36)
+	    __webpack_require__(35)
 	], __WEBPACK_AMD_DEFINE_RESULT__ = function(
 	    SplunkVisualizationBase,
-	    vizUtils,
 	    $,
 	    d3,
 	    PIXI
@@ -115,7 +113,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.data = in_data;
 	                viz.config = {
 	                    maxnodes: "100",
-	                    stop_when_not_visible: "yes",
 	                    node_repel_force: "1000",
 	                    node_center_force: "0.1",
 	                    positions: "",
@@ -155,8 +152,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                    node_shadow_color: "#000000",
 	                    node_text_color: "#000000",
 	                    node_text_size: "12",
-	                    node_radius: "2",
-	                    newParticleSpawning: "t"
+	                    node_radius: "2"
 	                };
 	                // Override defaults with selected items from the UI
 	                for (var opt in in_config) {
@@ -211,7 +207,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.linkDataMap = {};
 	                viz.nodeData = [];
 	                viz.linkData = [];
-	                viz.delayUntilParticles = 100;
+	                viz.delayUntilParticles = 300;
 	                viz.isDragging = false;
 	                viz.activeParticles = [];
 	                viz.activeGenerators = [];
@@ -408,7 +404,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	                viz.$container_wrap.empty();
 	                if (viz.hasOwnProperty("timer")) {
 	                    viz.timer.stop(); 
-	                    if (viz.config.renderer === "webgl") {
+	                    if (viz.timer.hasOwnProperty("destroy")) {
 	                        viz.timer.destroy();
 	                    }
 	                } 
@@ -782,7 +778,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            if (! viz.linkDataMap.hasOwnProperty(id)){
 	                viz.linkDataMap[id] = {
 	                    timeouts: {},
-	                    intervals: {},
 	                    drawIteration: -1,
 	                };
 	                viz.linkData.push(viz.linkDataMap[id]);
@@ -848,8 +843,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            return d3.drag()
 	                .on("start", function(d) {
-	                    for (var i = 0; i < viz.activeParticles.length; i++) {
-	                        viz.activeParticles[i].sprite.destroy();
+	                    if (viz.config.renderer === "webgl") {
+	                        for (var i = 0; i < viz.activeParticles.length; i++) {
+	                            viz.activeParticles[i].sprite.destroy();
+	                        }
 	                    }
 	                    viz.activeParticles = [];
 	                    viz.stopAllParticles();
@@ -952,79 +949,48 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
 	            base_jitter = Number(base_jitter);
 	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-	            if (viz.config.newParticleSpawning) {
-	                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-	                link_details.timeouts[particletype] = setTimeout(function(){
-	                    if (link_details.hasOwnProperty("sx")) {
-	                        viz.activeGenerators.push({
-	                            //start: null,
-	                            id: link_details.id,
-	                            interval: particle_dispatch_delay,
-	                            base_jitter: base_jitter,
-	                            base_time: base_time,
-	                            sx: link_details.sx,
-	                            sy: link_details.sy,
-	                            tx: link_details.tx,
-	                            ty: link_details.ty,
-	                            color: viz.particleTypes[particletype],
-	                        });
-	                    }
-	                }, (Math.random() * particle_dispatch_delay));
-	            } else {
-	                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-	                link_details.timeouts[particletype] = setTimeout(function(){
-	                    viz.doParticle(link_details, particletype, base_time, base_jitter);
-	                    // Start an ongoing timer for this particle
-	                    link_details.intervals[particletype] = setInterval(function(){
-	                        viz.doParticle(link_details, particletype, base_time, base_jitter);
-	                    }, particle_dispatch_delay);
-	                }, (Math.random() * particle_dispatch_delay));
-	            }
+	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+	            link_details.timeouts[particletype] = setTimeout(function(){
+	                viz.activeGenerators.push({
+	                    //start: null,
+	                    id: link_details.id,
+	                    interval: particle_dispatch_delay,
+	                    base_jitter: base_jitter,
+	                    base_time: base_time,
+	                    link_details: link_details,
+	                    color: viz.particleTypes[particletype],
+	                });
+	            }, (Math.random() * particle_dispatch_delay));
 	        },
 
 	        // check all particle generators and see if any new particles need to spawn
 	        spawnNewParticles: function(now) { 
 	            var i,g,jitter1,jitter2;
 	            var viz = this;
+	            var count = 0;
 	            if (viz.isDragging) { return; }
 	            for (i = 0; i < viz.activeGenerators.length; i++) {
 	                g = viz.activeGenerators[i];
 	                if (! g.hasOwnProperty("start") || (g.start + g.interval) < now) {
-	                    g.start = now;
-	                    jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
-	                    jitter2 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
-	                    viz.activeParticles.push({
-	                        sx: (jitter1 + g.sx),
-	                        sy: (jitter2 + g.sy),
-	                        tx: (jitter1 + g.tx),
-	                        ty: (jitter2 + g.ty),
-	                        color: g.color,
-	                        duration: g.base_time + ((viz.getRandom() * g.base_time * 0.4) - g.base_time * 0.2)
-	                    });
+	                    // may start multiple particles if the max is larger than the refresh rate (60FPS)
+	                    if (g.link_details.hasOwnProperty("sx")) {
+	                        // 16 ms in 60 frames/sec
+	                        var extras = Math.round(16.7 / g.interval);
+	                        for (var j = 0; j < extras; j++) {
+	                            g.start = now;
+	                            jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+	                            jitter2 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+	                            viz.activeParticles.push({
+	                                sx: (jitter1 + g.link_details.sx),
+	                                sy: (jitter2 + g.link_details.sy),
+	                                tx: (jitter1 + g.link_details.tx),
+	                                ty: (jitter2 + g.link_details.ty),
+	                                color: g.color,
+	                                duration: g.base_time + ((viz.getRandom() * g.base_time * 0.4) - g.base_time * 0.2)
+	                            });
+	                        }
+	                    }
 	                }
-	            }
-	        },
-
-	        //Creates the actual particle, transition it with random speed and it will be destroyed when it gets to the end
-	        doParticle: function(link_details, particletype, base_time, base_jitter){
-	            var viz = this;
-	            // Do not start particles until stuff slows its movement
-	            if (viz.isDragging) { return; }
-	            // if browser window isnt visible then dont draw
-	            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
-	                return;
-	            }
-	            var jitter1 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
-	            var jitter2 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
-	            if (link_details.hasOwnProperty("sx")) {
-	                viz.activeParticles.push({
-	                    sx: (jitter1 + link_details.sx),
-	                    sy: (jitter2 + link_details.sy),
-	                    tx: (jitter1 + link_details.tx),
-	                    ty: (jitter2 + link_details.ty),
-	                    color: viz.particleTypes[particletype],
-	                    duration: base_time + ((viz.getRandom() * base_time * 0.4) - base_time * 0.2)
-	                });
 	            }
 	        },
 
@@ -1032,6 +998,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        seedRandom: function() {
 	            var viz = this;
 	            viz.randoms = [];
+	            viz.randoms_idx = 1;
 	            for (var i=1e6; i--;) {
 	                viz.randoms.push(Math.random());
 	            }
@@ -1039,7 +1006,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	        getRandom: function() {
 	            var viz = this;
-	            return ++i >= viz.randoms.length ? viz.randoms[i=0] : viz.randoms[i];
+	            return ++viz.randoms_idx >= viz.randoms.length ? viz.randoms[viz.randoms_idx=0] : viz.randoms[viz.randoms_idx];
 	        },
 
 	        updateWebGL: function(){
@@ -1047,12 +1014,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var now = (new Date).getTime();
 	            var i,p,t;
 
-	            if (viz.config.newParticleSpawning) {
-	                viz.spawnNewParticles(now);
-	            }
+	            viz.spawnNewParticles(now);
 
 	            for (i = viz.activeParticles.length - 1; i >= 0; i--) {
 	                p = viz.activeParticles[i];
+	                // if the start key doesnt exist, then the particle must have just spawned
 	                if (! p.hasOwnProperty("start")) {
 	                    p.start = now;
 	                    p.sprite = PIXI.Sprite.from(viz.particleTexture);
@@ -1078,53 +1044,35 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            var viz = this;
 	            var now = (new Date).getTime();
 	            var i,x,y,p,t;
-	            var deletes = [];
-	            var prevcolor = null;
-	            if (viz.config.newParticleSpawning) {
-	                viz.spawnNewParticles(now);
-	            }
+	            viz.spawnNewParticles(now);
 	            // This could be optimised to only clear a line of pixels between the start and end point 
 	            // instead of doing a clearRect on the whole canvas. however this wouldnt be a huge benefit
 	            viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
-	            for (i = 0; i < viz.activeParticles.length; i++) {
+	            for (i = viz.activeParticles.length - 1; i >= 0; i--) {
 	                p = viz.activeParticles[i];
-	                // Try to reduce the amount of context switches by batching where possible.
-	                // this could be more efficient if we did all good, then all warn then all errors
-	                // however this would mean the errors are always layered on top and we want them interleaved.
-	                if (prevcolor !== null && p.color !== prevcolor) {
-	                    viz.context.fillStyle = prevcolor;
-	                    viz.context.fill();
-	                    viz.context.beginPath();
-	                }
-	                if (prevcolor === null) {
-	                    viz.context.beginPath();
-	                }
-	                prevcolor = p.color;
 	                if (! p.hasOwnProperty("start")) {
 	                    p.start = now;
 	                }
 	                t = ((now - p.start) / p.duration);
-	                // if particle made it to the end
-	                if (t > 1) {
-	                    deletes.push(i);
-	                    continue;
+	                // if particle is not yet at the target
+	                if (t < 1) {
+	                    x = Math.floor(p.sx * (1 - t) + p.tx * t);
+	                    y = Math.floor(p.sy * (1 - t) + p.ty * t);
+	                    viz.context.beginPath();
+	                    if (viz.config.particle_blur !== "0") {
+	                        viz.context.shadowColor = p.color;
+	                        viz.context.shadowBlur = viz.config.particle_blur;
+	                        viz.context.shadowOffsetX = 0;
+	                        viz.context.shadowOffsetY = 0;
+	                    }
+	                    viz.context.moveTo(x + viz.config.particle_size, y);
+	                    viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
+	                    viz.context.fillStyle = p.color;
+	                    viz.context.fill();
+	                } else {
+	                    // particle has reached target
+	                    viz.activeParticles.splice(i, 1);
 	                }
-	                x = Math.floor(p.sx * (1 - t) + p.tx * t);
-	                y = Math.floor(p.sy * (1 - t) + p.ty * t);
-	                if (viz.config.particle_blur !== "0") {
-	                    viz.context.shadowColor = p.color;
-	                    viz.context.shadowBlur = viz.config.particle_blur;
-	                    viz.context.shadowOffsetX = 0;
-	                    viz.context.shadowOffsetY = 0;
-	                }
-	                viz.context.moveTo(x + viz.config.particle_size, y);
-	                viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
-	            }
-	            if (prevcolor !== null) {
-	                viz.context.fill();
-	            }
-	            for (i = deletes.length - 1; i >= 0; i--) {
-	                viz.activeParticles.splice(deletes[i], 1);
 	            }
 	        },
 
@@ -1139,6 +1087,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	        },
 
 	        stopParticleGenerator: function(link_details){
+	            var viz = this;
 	            for (var i = viz.activeGenerators.length - 1; i >= 0; i--) {
 	                if (viz.activeGenerators[i].id === link_details.id) {
 	                    viz.activeGenerators.splice(i, 1);
@@ -1151,7 +1100,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	            for (var particletype in viz.particleTypes) {
 	                if (viz.particleTypes.hasOwnProperty(particletype)) {
 	                    clearTimeout(link_details.timeouts[particletype]);
-	                    clearTimeout(link_details.intervals[particletype]);
 	                }
 	            }
 	        },
@@ -2480,12 +2428,6 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 /***/ }),
 /* 2 */
-/***/ (function(module, exports) {
-
-	module.exports = __WEBPACK_EXTERNAL_MODULE_2__;
-
-/***/ }),
-/* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13089,44 +13031,44 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 4 */
+/* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var d3Array = __webpack_require__(5);
-	var d3Axis = __webpack_require__(6);
-	var d3Brush = __webpack_require__(7);
-	var d3Chord = __webpack_require__(16);
-	var d3Collection = __webpack_require__(18);
-	var d3Color = __webpack_require__(12);
-	var d3Contour = __webpack_require__(19);
-	var d3Dispatch = __webpack_require__(8);
-	var d3Drag = __webpack_require__(9);
-	var d3Dsv = __webpack_require__(20);
-	var d3Ease = __webpack_require__(15);
-	var d3Fetch = __webpack_require__(21);
-	var d3Force = __webpack_require__(22);
-	var d3Format = __webpack_require__(24);
-	var d3Geo = __webpack_require__(25);
-	var d3Hierarchy = __webpack_require__(26);
-	var d3Interpolate = __webpack_require__(11);
-	var d3Path = __webpack_require__(17);
-	var d3Polygon = __webpack_require__(27);
-	var d3Quadtree = __webpack_require__(23);
-	var d3Random = __webpack_require__(28);
-	var d3Scale = __webpack_require__(29);
-	var d3ScaleChromatic = __webpack_require__(32);
-	var d3Selection = __webpack_require__(10);
-	var d3Shape = __webpack_require__(33);
-	var d3Time = __webpack_require__(30);
-	var d3TimeFormat = __webpack_require__(31);
-	var d3Timer = __webpack_require__(14);
-	var d3Transition = __webpack_require__(13);
-	var d3Voronoi = __webpack_require__(34);
-	var d3Zoom = __webpack_require__(35);
+	var d3Array = __webpack_require__(4);
+	var d3Axis = __webpack_require__(5);
+	var d3Brush = __webpack_require__(6);
+	var d3Chord = __webpack_require__(15);
+	var d3Collection = __webpack_require__(17);
+	var d3Color = __webpack_require__(11);
+	var d3Contour = __webpack_require__(18);
+	var d3Dispatch = __webpack_require__(7);
+	var d3Drag = __webpack_require__(8);
+	var d3Dsv = __webpack_require__(19);
+	var d3Ease = __webpack_require__(14);
+	var d3Fetch = __webpack_require__(20);
+	var d3Force = __webpack_require__(21);
+	var d3Format = __webpack_require__(23);
+	var d3Geo = __webpack_require__(24);
+	var d3Hierarchy = __webpack_require__(25);
+	var d3Interpolate = __webpack_require__(10);
+	var d3Path = __webpack_require__(16);
+	var d3Polygon = __webpack_require__(26);
+	var d3Quadtree = __webpack_require__(22);
+	var d3Random = __webpack_require__(27);
+	var d3Scale = __webpack_require__(28);
+	var d3ScaleChromatic = __webpack_require__(31);
+	var d3Selection = __webpack_require__(9);
+	var d3Shape = __webpack_require__(32);
+	var d3Time = __webpack_require__(29);
+	var d3TimeFormat = __webpack_require__(30);
+	var d3Timer = __webpack_require__(13);
+	var d3Transition = __webpack_require__(12);
+	var d3Voronoi = __webpack_require__(33);
+	var d3Zoom = __webpack_require__(34);
 
 	var version = "5.9.7";
 
@@ -13166,7 +13108,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 5 */
+/* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-array/ v1.2.4 Copyright 2018 Mike Bostock
@@ -13762,7 +13704,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 6 */
+/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-axis/ v1.0.12 Copyright 2018 Mike Bostock
@@ -13961,12 +13903,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 7 */
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-brush/ v1.1.2 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(8), __webpack_require__(9), __webpack_require__(11), __webpack_require__(10), __webpack_require__(13)) :
+	 true ? factory(exports, __webpack_require__(7), __webpack_require__(8), __webpack_require__(10), __webpack_require__(9), __webpack_require__(12)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-dispatch', 'd3-drag', 'd3-interpolate', 'd3-selection', 'd3-transition'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3, global.d3, global.d3, global.d3));
 	}(this, function (exports, d3Dispatch, d3Drag, d3Interpolate, d3Selection, d3Transition) { 'use strict';
@@ -14578,7 +14520,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 8 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-dispatch/ v1.0.5 Copyright 2018 Mike Bostock
@@ -14679,12 +14621,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 9 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-drag/ v1.2.4 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(8), __webpack_require__(10)) :
+	 true ? factory(exports, __webpack_require__(7), __webpack_require__(9)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-dispatch', 'd3-selection'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3));
 	}(this, function (exports, d3Dispatch, d3Selection) { 'use strict';
@@ -14919,7 +14861,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 10 */
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-selection/ v1.4.0 Copyright 2019 Mike Bostock
@@ -15912,12 +15854,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 11 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(12)) :
+	 true ? factory(exports, __webpack_require__(11)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -16490,7 +16432,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 12 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ v1.3.0 Copyright 2019 Mike Bostock
@@ -17075,12 +17017,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 13 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-transition/ v1.2.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(8), __webpack_require__(14), __webpack_require__(12), __webpack_require__(11), __webpack_require__(10), __webpack_require__(15)) :
+	 true ? factory(exports, __webpack_require__(7), __webpack_require__(13), __webpack_require__(11), __webpack_require__(10), __webpack_require__(9), __webpack_require__(14)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-dispatch', 'd3-timer', 'd3-color', 'd3-interpolate', 'd3-selection', 'd3-ease'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Dispatch,d3Timer,d3Color,d3Interpolate,d3Selection,d3Ease) { 'use strict';
@@ -17935,7 +17877,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 14 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-timer/ v1.0.9 Copyright 2018 Mike Bostock
@@ -18090,7 +18032,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 15 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-ease/ v1.0.5 Copyright 2018 Mike Bostock
@@ -18355,12 +18297,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 16 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-chord/ v1.0.6 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(5), __webpack_require__(17)) :
+	 true ? factory(exports, __webpack_require__(4), __webpack_require__(16)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-path'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
 	}(this, (function (exports,d3Array,d3Path) { 'use strict';
@@ -18591,7 +18533,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 17 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-path/ v1.0.8 Copyright 2019 Mike Bostock
@@ -18738,7 +18680,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 18 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-collection/ v1.0.7 Copyright 2018 Mike Bostock
@@ -18961,12 +18903,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 19 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-contour/ v1.3.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(5)) :
+	 true ? factory(exports, __webpack_require__(4)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Array) { 'use strict';
@@ -19398,7 +19340,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 20 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-dsv/ v1.1.1 Copyright 2019 Mike Bostock
@@ -19621,12 +19563,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 21 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-fetch/ v1.1.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(20)) :
+	 true ? factory(exports, __webpack_require__(19)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-dsv'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Dsv) { 'use strict';
@@ -19729,12 +19671,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 22 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-force/ v1.2.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(23), __webpack_require__(18), __webpack_require__(8), __webpack_require__(14)) :
+	 true ? factory(exports, __webpack_require__(22), __webpack_require__(17), __webpack_require__(7), __webpack_require__(13)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-quadtree', 'd3-collection', 'd3-dispatch', 'd3-timer'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Quadtree,d3Collection,d3Dispatch,d3Timer) { 'use strict';
@@ -20403,7 +20345,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 23 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-quadtree/ v1.0.6 Copyright 2019 Mike Bostock
@@ -20828,7 +20770,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 24 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-format/ v1.3.2 Copyright 2018 Mike Bostock
@@ -21154,12 +21096,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 25 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-geo/ v1.11.6 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(5)) :
+	 true ? factory(exports, __webpack_require__(4)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Array) { 'use strict';
@@ -24286,7 +24228,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 26 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-hierarchy/ v1.1.8 Copyright 2018 Mike Bostock
@@ -25582,7 +25524,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 27 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-polygon/ v1.0.5 Copyright 2018 Mike Bostock
@@ -25738,7 +25680,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 28 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-random/ v1.1.2 Copyright 2018 Mike Bostock
@@ -25859,12 +25801,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 29 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale/ v2.2.2 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(18), __webpack_require__(5), __webpack_require__(11), __webpack_require__(24), __webpack_require__(30), __webpack_require__(31)) :
+	 true ? factory(exports, __webpack_require__(17), __webpack_require__(4), __webpack_require__(10), __webpack_require__(23), __webpack_require__(29), __webpack_require__(30)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-collection', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Collection,d3Array,d3Interpolate,d3Format,d3Time,d3TimeFormat) { 'use strict';
@@ -27030,7 +26972,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 30 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time/ v1.0.11 Copyright 2019 Mike Bostock
@@ -27407,12 +27349,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 31 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time-format/ v2.1.3 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(30)) :
+	 true ? factory(exports, __webpack_require__(29)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Time) { 'use strict';
@@ -28097,12 +28039,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 32 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale-chromatic/ v1.4.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(11), __webpack_require__(12)) :
+	 true ? factory(exports, __webpack_require__(10), __webpack_require__(11)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3));
 	}(this, function (exports, d3Interpolate, d3Color) { 'use strict';
@@ -28604,12 +28546,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 33 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-shape/ v1.3.5 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(17)) :
+	 true ? factory(exports, __webpack_require__(16)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-path'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Path) { 'use strict';
@@ -30559,7 +30501,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 34 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-voronoi/ v1.1.4 Copyright 2018 Mike Bostock
@@ -31564,12 +31506,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 35 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-zoom/ v1.8.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(8), __webpack_require__(9), __webpack_require__(11), __webpack_require__(10), __webpack_require__(13)) :
+	 true ? factory(exports, __webpack_require__(7), __webpack_require__(8), __webpack_require__(10), __webpack_require__(9), __webpack_require__(12)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-dispatch', 'd3-drag', 'd3-interpolate', 'd3-selection', 'd3-transition'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3, global.d3, global.d3, global.d3));
 	}(this, function (exports, d3Dispatch, d3Drag, d3Interpolate, d3Selection, d3Transition) { 'use strict';
@@ -32067,7 +32009,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 36 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -32081,40 +32023,40 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	__webpack_require__(37);
-	var accessibility = __webpack_require__(43);
-	var interaction = __webpack_require__(60);
-	var utils = __webpack_require__(44);
-	var app = __webpack_require__(62);
-	var core = __webpack_require__(63);
-	var extract = __webpack_require__(65);
-	var loaders = __webpack_require__(66);
-	var particles = __webpack_require__(70);
-	var prepare = __webpack_require__(71);
-	var spritesheet = __webpack_require__(75);
-	var spriteTiling = __webpack_require__(76);
-	var textBitmap = __webpack_require__(77);
-	var ticker = __webpack_require__(61);
-	var filterAlpha = __webpack_require__(78);
-	var filterBlur = __webpack_require__(79);
-	var filterColorMatrix = __webpack_require__(80);
-	var filterDisplacement = __webpack_require__(81);
-	var filterFxaa = __webpack_require__(82);
-	var filterNoise = __webpack_require__(83);
+	__webpack_require__(36);
+	var accessibility = __webpack_require__(42);
+	var interaction = __webpack_require__(59);
+	var utils = __webpack_require__(43);
+	var app = __webpack_require__(61);
+	var core = __webpack_require__(62);
+	var extract = __webpack_require__(64);
+	var loaders = __webpack_require__(65);
+	var particles = __webpack_require__(69);
+	var prepare = __webpack_require__(70);
+	var spritesheet = __webpack_require__(74);
+	var spriteTiling = __webpack_require__(75);
+	var textBitmap = __webpack_require__(76);
+	var ticker = __webpack_require__(60);
+	var filterAlpha = __webpack_require__(77);
+	var filterBlur = __webpack_require__(78);
+	var filterColorMatrix = __webpack_require__(79);
+	var filterDisplacement = __webpack_require__(80);
+	var filterFxaa = __webpack_require__(81);
+	var filterNoise = __webpack_require__(82);
+	__webpack_require__(83);
 	__webpack_require__(84);
 	__webpack_require__(85);
-	__webpack_require__(86);
-	var constants = __webpack_require__(57);
-	var display = __webpack_require__(58);
-	var graphics = __webpack_require__(72);
-	var math = __webpack_require__(59);
-	var mesh = __webpack_require__(87);
-	var meshExtras = __webpack_require__(88);
-	var runner = __webpack_require__(64);
-	var sprite = __webpack_require__(74);
-	var spriteAnimated = __webpack_require__(89);
-	var text = __webpack_require__(73);
-	var settings = __webpack_require__(45);
+	var constants = __webpack_require__(56);
+	var display = __webpack_require__(57);
+	var graphics = __webpack_require__(71);
+	var math = __webpack_require__(58);
+	var mesh = __webpack_require__(86);
+	var meshExtras = __webpack_require__(87);
+	var runner = __webpack_require__(63);
+	var sprite = __webpack_require__(73);
+	var spriteAnimated = __webpack_require__(88);
+	var text = __webpack_require__(72);
+	var settings = __webpack_require__(44);
 
 	var v5 = '5.0.0';
 
@@ -33730,7 +33672,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 37 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(global) {/*!
@@ -33744,8 +33686,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var es6PromisePolyfill = __webpack_require__(38);
-	var objectAssign = _interopDefault(__webpack_require__(42));
+	var es6PromisePolyfill = __webpack_require__(37);
+	var objectAssign = _interopDefault(__webpack_require__(41));
 
 	// Support for IE 9 - 11 which does not include Promises
 	if (!window.Promise)
@@ -33902,7 +33844,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
-/* 38 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(global, setImmediate) {(function(global){
@@ -34252,10 +34194,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	})(typeof window != 'undefined' ? window : typeof global != 'undefined' ? global : typeof self != 'undefined' ? self : this);
 
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(39).setImmediate))
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(38).setImmediate))
 
 /***/ }),
-/* 39 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(global) {var scope = (typeof global !== "undefined" && global) ||
@@ -34311,7 +34253,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	};
 
 	// setimmediate attaches itself to the global object
-	__webpack_require__(40);
+	__webpack_require__(39);
 	// On some exotic environments, it's not clear which object `setimmediate` was
 	// able to install onto.  Search each possibility in the same order as the
 	// `setimmediate` library.
@@ -34325,7 +34267,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
-/* 40 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(global, process) {(function (global, undefined) {
@@ -34515,10 +34457,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	    attachTo.clearImmediate = clearImmediate;
 	}(typeof self === "undefined" ? typeof global === "undefined" ? this : global : self));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(41)))
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(40)))
 
 /***/ }),
-/* 41 */
+/* 40 */
 /***/ (function(module, exports) {
 
 	// shim for using process in browser
@@ -34708,7 +34650,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 42 */
+/* 41 */
 /***/ (function(module, exports) {
 
 	/*
@@ -34804,7 +34746,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 43 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -34818,8 +34760,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var utils = __webpack_require__(44);
-	var display = __webpack_require__(58);
+	var utils = __webpack_require__(43);
+	var display = __webpack_require__(57);
 
 	/**
 	 * Default property values of accessible objects
@@ -35513,7 +35455,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 44 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -35529,12 +35471,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var settings = __webpack_require__(45);
-	var eventemitter3 = _interopDefault(__webpack_require__(48));
-	var earcut = _interopDefault(__webpack_require__(49));
-	var _url = __webpack_require__(50);
+	var settings = __webpack_require__(44);
+	var eventemitter3 = _interopDefault(__webpack_require__(47));
+	var earcut = _interopDefault(__webpack_require__(48));
+	var _url = __webpack_require__(49);
 	var _url__default = _interopDefault(_url);
-	var constants = __webpack_require__(57);
+	var constants = __webpack_require__(56);
 
 	/**
 	 * The prefix that denotes a URL is for a retina asset.
@@ -36454,7 +36396,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 45 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -36470,7 +36412,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var isMobileCall = _interopDefault(__webpack_require__(46));
+	var isMobileCall = _interopDefault(__webpack_require__(45));
 
 	// The ESM/CJS versions of ismobilejs only
 
@@ -36786,7 +36728,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 46 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -36794,13 +36736,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 	}
 	Object.defineProperty(exports, "__esModule", { value: true });
-	__export(__webpack_require__(47));
-	var isMobile_1 = __webpack_require__(47);
+	__export(__webpack_require__(46));
+	var isMobile_1 = __webpack_require__(46);
 	exports.default = isMobile_1.default;
 	//# sourceMappingURL=index.js.map
 
 /***/ }),
-/* 47 */
+/* 46 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -36900,7 +36842,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	//# sourceMappingURL=isMobile.js.map
 
 /***/ }),
-/* 48 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -37242,7 +37184,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 49 */
+/* 48 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -37927,7 +37869,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 50 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -37953,8 +37895,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	'use strict';
 
-	var punycode = __webpack_require__(51);
-	var util = __webpack_require__(53);
+	var punycode = __webpack_require__(50);
+	var util = __webpack_require__(52);
 
 	exports.parse = urlParse;
 	exports.resolve = urlResolve;
@@ -38029,7 +37971,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	      'gopher:': true,
 	      'file:': true
 	    },
-	    querystring = __webpack_require__(54);
+	    querystring = __webpack_require__(53);
 
 	function urlParse(url, parseQueryString, slashesDenoteHost) {
 	  if (url && util.isObject(url) && url instanceof Url) return url;
@@ -38665,7 +38607,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 51 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global) {/*! https://mths.be/punycode v1.3.2 by @mathias */
@@ -39197,10 +39139,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	}(this));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(52)(module), (function() { return this; }())))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(51)(module), (function() { return this; }())))
 
 /***/ }),
-/* 52 */
+/* 51 */
 /***/ (function(module, exports) {
 
 	module.exports = function(module) {
@@ -39216,7 +39158,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 53 */
+/* 52 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -39238,17 +39180,17 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 54 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	exports.decode = exports.parse = __webpack_require__(55);
-	exports.encode = exports.stringify = __webpack_require__(56);
+	exports.decode = exports.parse = __webpack_require__(54);
+	exports.encode = exports.stringify = __webpack_require__(55);
 
 
 /***/ }),
-/* 55 */
+/* 54 */
 /***/ (function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -39334,7 +39276,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 56 */
+/* 55 */
 /***/ (function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -39404,7 +39346,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 57 */
+/* 56 */
 /***/ (function(module, exports) {
 
 	/*!
@@ -39553,7 +39495,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 58 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -39567,9 +39509,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var settings = __webpack_require__(45);
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
+	var settings = __webpack_require__(44);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
 
 	/**
 	 * Sets the default value for the container property 'sortableChildren'.
@@ -41471,7 +41413,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 59 */
+/* 58 */
 /***/ (function(module, exports) {
 
 	/*!
@@ -43405,7 +43347,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 60 */
+/* 59 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -43419,10 +43361,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var math = __webpack_require__(59);
-	var ticker = __webpack_require__(61);
-	var display = __webpack_require__(58);
-	var utils = __webpack_require__(44);
+	var math = __webpack_require__(58);
+	var ticker = __webpack_require__(60);
+	var display = __webpack_require__(57);
+	var utils = __webpack_require__(43);
 
 	/**
 	 * Holds all information related to an Interaction event
@@ -46022,7 +45964,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 61 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -46036,7 +45978,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var settings = __webpack_require__(45);
+	var settings = __webpack_require__(44);
 
 	/**
 	 * Target frames per millisecond.
@@ -46877,7 +46819,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 62 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -46891,8 +46833,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var display = __webpack_require__(58);
-	var core = __webpack_require__(63);
+	var display = __webpack_require__(57);
+	var core = __webpack_require__(62);
 
 	/**
 	 * Convenience class to create a new PIXI application.
@@ -47116,7 +47058,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 63 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -47130,13 +47072,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var runner = __webpack_require__(64);
-	var utils = __webpack_require__(44);
-	var constants = __webpack_require__(57);
-	var settings = __webpack_require__(45);
-	var ticker = __webpack_require__(61);
-	var math = __webpack_require__(59);
-	var display = __webpack_require__(58);
+	var runner = __webpack_require__(63);
+	var utils = __webpack_require__(43);
+	var constants = __webpack_require__(56);
+	var settings = __webpack_require__(44);
+	var ticker = __webpack_require__(60);
+	var math = __webpack_require__(58);
+	var display = __webpack_require__(57);
 
 	/**
 	 * Base resource class for textures that manages validation and uploading, depending on its type.
@@ -60233,7 +60175,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 64 */
+/* 63 */
 /***/ (function(module, exports) {
 
 	/*!
@@ -60441,7 +60383,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 65 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -60455,9 +60397,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var utils = __webpack_require__(44);
-	var math = __webpack_require__(59);
+	var core = __webpack_require__(62);
+	var utils = __webpack_require__(43);
+	var math = __webpack_require__(58);
 
 	var TEMP_RECT = new math.Rectangle();
 	var BYTES_PER_PIXEL = 4;
@@ -60740,7 +60682,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 66 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -60754,9 +60696,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var resourceLoader = __webpack_require__(67);
-	var utils = __webpack_require__(44);
-	var core = __webpack_require__(63);
+	var resourceLoader = __webpack_require__(66);
+	var utils = __webpack_require__(43);
+	var core = __webpack_require__(62);
 
 	/**
 	 * Loader plugin for handling Texture resources.
@@ -61059,7 +61001,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 67 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -61076,8 +61018,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var parseUri = _interopDefault(__webpack_require__(68));
-	var Signal = _interopDefault(__webpack_require__(69));
+	var parseUri = _interopDefault(__webpack_require__(67));
+	var Signal = _interopDefault(__webpack_require__(68));
 
 	/**
 	 * Smaller version of the async library constructs.
@@ -63414,7 +63356,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 68 */
+/* 67 */
 /***/ (function(module, exports) {
 
 	'use strict'
@@ -63450,7 +63392,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 69 */
+/* 68 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -63621,7 +63563,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 70 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -63635,11 +63577,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var constants = __webpack_require__(57);
-	var utils = __webpack_require__(44);
-	var display = __webpack_require__(58);
-	var core = __webpack_require__(63);
-	var math = __webpack_require__(59);
+	var constants = __webpack_require__(56);
+	var utils = __webpack_require__(43);
+	var display = __webpack_require__(57);
+	var core = __webpack_require__(62);
+	var math = __webpack_require__(58);
 
 	/**
 	 * The ParticleContainer class is a really fast version of the Container built solely for speed,
@@ -64616,7 +64558,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 71 */
+/* 70 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -64630,12 +64572,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var settings = __webpack_require__(45);
-	var core = __webpack_require__(63);
-	var graphics = __webpack_require__(72);
-	var ticker = __webpack_require__(61);
-	var display = __webpack_require__(58);
-	var text = __webpack_require__(73);
+	var settings = __webpack_require__(44);
+	var core = __webpack_require__(62);
+	var graphics = __webpack_require__(71);
+	var ticker = __webpack_require__(60);
+	var display = __webpack_require__(57);
+	var text = __webpack_require__(72);
 
 	/**
 	 * Default number of uploads per frame using prepare plugin.
@@ -65363,7 +65305,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 72 */
+/* 71 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -65377,11 +65319,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
-	var constants = __webpack_require__(57);
-	var display = __webpack_require__(58);
+	var core = __webpack_require__(62);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
+	var constants = __webpack_require__(56);
+	var display = __webpack_require__(57);
 
 	/**
 	 * Graphics curves resolution settings. If `adaptive` flag is set to `true`,
@@ -69191,7 +69133,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 73 */
+/* 72 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -69205,11 +69147,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var sprite = __webpack_require__(74);
-	var core = __webpack_require__(63);
-	var settings = __webpack_require__(45);
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
+	var sprite = __webpack_require__(73);
+	var core = __webpack_require__(62);
+	var settings = __webpack_require__(44);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
 
 	/**
 	 * Constants that define the type of gradient on text.
@@ -71511,7 +71453,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 74 */
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -71525,12 +71467,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
-	var core = __webpack_require__(63);
-	var constants = __webpack_require__(57);
-	var display = __webpack_require__(58);
-	var settings = __webpack_require__(45);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
+	var core = __webpack_require__(62);
+	var constants = __webpack_require__(56);
+	var display = __webpack_require__(57);
+	var settings = __webpack_require__(44);
 
 	var tempPoint = new math.Point();
 	var indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
@@ -72206,7 +72148,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 75 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -72220,10 +72162,10 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var math = __webpack_require__(59);
-	var core = __webpack_require__(63);
-	var utils = __webpack_require__(44);
-	var loaders = __webpack_require__(66);
+	var math = __webpack_require__(58);
+	var core = __webpack_require__(62);
+	var utils = __webpack_require__(43);
+	var loaders = __webpack_require__(65);
 
 	/**
 	 * Utility class for maintaining reference to a collection
@@ -72631,7 +72573,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 76 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -72645,11 +72587,11 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
-	var sprite = __webpack_require__(74);
-	var constants = __webpack_require__(57);
+	var core = __webpack_require__(62);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
+	var sprite = __webpack_require__(73);
+	var constants = __webpack_require__(56);
 
 	var tempPoint = new math.Point();
 
@@ -73154,7 +73096,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 77 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -73168,13 +73110,13 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var display = __webpack_require__(58);
-	var math = __webpack_require__(59);
-	var settings = __webpack_require__(45);
-	var sprite = __webpack_require__(74);
-	var utils = __webpack_require__(44);
-	var loaders = __webpack_require__(66);
+	var core = __webpack_require__(62);
+	var display = __webpack_require__(57);
+	var math = __webpack_require__(58);
+	var settings = __webpack_require__(44);
+	var sprite = __webpack_require__(73);
+	var utils = __webpack_require__(43);
+	var loaders = __webpack_require__(65);
 
 	/**
 	 * A BitmapText object will create a line or multiple lines of text using bitmap font.
@@ -74000,7 +73942,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 78 */
+/* 77 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -74014,7 +73956,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
+	var core = __webpack_require__(62);
 
 	var fragment = "varying vec2 vTextureCoord;\n\nuniform sampler2D uSampler;\nuniform float uAlpha;\n\nvoid main(void)\n{\n   gl_FragColor = texture2D(uSampler, vTextureCoord) * uAlpha;\n}\n";
 
@@ -74077,7 +74019,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 79 */
+/* 78 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -74091,8 +74033,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var settings = __webpack_require__(45);
+	var core = __webpack_require__(62);
+	var settings = __webpack_require__(44);
 
 	var vertTemplate = "\n    attribute vec2 aVertexPosition;\n\n    uniform mat3 projectionMatrix;\n\n    uniform float strength;\n\n    varying vec2 vBlurTexCoords[%size%];\n\n    uniform vec4 inputSize;\n    uniform vec4 outputFrame;\n\n    vec4 filterVertexPosition( void )\n    {\n        vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;\n\n        return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);\n    }\n\n    vec2 filterTextureCoord( void )\n    {\n        return aVertexPosition * (outputFrame.zw * inputSize.zw);\n    }\n\n    void main(void)\n    {\n        gl_Position = filterVertexPosition();\n\n        vec2 textureCoord = filterTextureCoord();\n        %blur%\n    }";
 
@@ -74517,7 +74459,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 80 */
+/* 79 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -74531,7 +74473,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
+	var core = __webpack_require__(62);
 
 	var fragment = "varying vec2 vTextureCoord;\nuniform sampler2D uSampler;\nuniform float m[20];\nuniform float uAlpha;\n\nvoid main(void)\n{\n    vec4 c = texture2D(uSampler, vTextureCoord);\n\n    if (uAlpha == 0.0) {\n        gl_FragColor = c;\n        return;\n    }\n\n    // Un-premultiply alpha before applying the color matrix. See issue #3539.\n    if (c.a > 0.0) {\n      c.rgb /= c.a;\n    }\n\n    vec4 result;\n\n    result.r = (m[0] * c.r);\n        result.r += (m[1] * c.g);\n        result.r += (m[2] * c.b);\n        result.r += (m[3] * c.a);\n        result.r += m[4];\n\n    result.g = (m[5] * c.r);\n        result.g += (m[6] * c.g);\n        result.g += (m[7] * c.b);\n        result.g += (m[8] * c.a);\n        result.g += m[9];\n\n    result.b = (m[10] * c.r);\n       result.b += (m[11] * c.g);\n       result.b += (m[12] * c.b);\n       result.b += (m[13] * c.a);\n       result.b += m[14];\n\n    result.a = (m[15] * c.r);\n       result.a += (m[16] * c.g);\n       result.a += (m[17] * c.b);\n       result.a += (m[18] * c.a);\n       result.a += m[19];\n\n    vec3 rgb = mix(c.rgb, result.rgb, uAlpha);\n\n    // Premultiply alpha again.\n    rgb *= result.a;\n\n    gl_FragColor = vec4(rgb, result.a);\n}\n";
 
@@ -75128,7 +75070,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 81 */
+/* 80 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75142,8 +75084,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var math = __webpack_require__(59);
+	var core = __webpack_require__(62);
+	var math = __webpack_require__(58);
 
 	var vertex = "attribute vec2 aVertexPosition;\n\nuniform mat3 projectionMatrix;\nuniform mat3 filterMatrix;\n\nvarying vec2 vTextureCoord;\nvarying vec2 vFilterCoord;\n\nuniform vec4 inputSize;\nuniform vec4 outputFrame;\n\nvec4 filterVertexPosition( void )\n{\n    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;\n\n    return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);\n}\n\nvec2 filterTextureCoord( void )\n{\n    return aVertexPosition * (outputFrame.zw * inputSize.zw);\n}\n\nvoid main(void)\n{\n\tgl_Position = filterVertexPosition();\n\tvTextureCoord = filterTextureCoord();\n\tvFilterCoord = ( filterMatrix * vec3( vTextureCoord, 1.0)  ).xy;\n}\n";
 
@@ -75259,7 +75201,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 82 */
+/* 81 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75273,7 +75215,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
+	var core = __webpack_require__(62);
 
 	var vertex = "\nattribute vec2 aVertexPosition;\n\nuniform mat3 projectionMatrix;\n\nvarying vec2 v_rgbNW;\nvarying vec2 v_rgbNE;\nvarying vec2 v_rgbSW;\nvarying vec2 v_rgbSE;\nvarying vec2 v_rgbM;\n\nvarying vec2 vFragCoord;\n\nuniform vec4 inputPixel;\nuniform vec4 outputFrame;\n\nvec4 filterVertexPosition( void )\n{\n    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;\n\n    return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);\n}\n\nvoid texcoords(vec2 fragCoord, vec2 inverseVP,\n               out vec2 v_rgbNW, out vec2 v_rgbNE,\n               out vec2 v_rgbSW, out vec2 v_rgbSE,\n               out vec2 v_rgbM) {\n    v_rgbNW = (fragCoord + vec2(-1.0, -1.0)) * inverseVP;\n    v_rgbNE = (fragCoord + vec2(1.0, -1.0)) * inverseVP;\n    v_rgbSW = (fragCoord + vec2(-1.0, 1.0)) * inverseVP;\n    v_rgbSE = (fragCoord + vec2(1.0, 1.0)) * inverseVP;\n    v_rgbM = vec2(fragCoord * inverseVP);\n}\n\nvoid main(void) {\n\n   gl_Position = filterVertexPosition();\n\n   vFragCoord = aVertexPosition * outputFrame.zw;\n\n   texcoords(vFragCoord, inputPixel.zw, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);\n}\n";
 
@@ -75309,7 +75251,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 83 */
+/* 82 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75323,7 +75265,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
+	var core = __webpack_require__(62);
 
 	var fragment = "precision highp float;\n\nvarying vec2 vTextureCoord;\nvarying vec4 vColor;\n\nuniform float uNoise;\nuniform float uSeed;\nuniform sampler2D uSampler;\n\nfloat rand(vec2 co)\n{\n    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);\n}\n\nvoid main()\n{\n    vec4 color = texture2D(uSampler, vTextureCoord);\n    float randomValue = rand(gl_FragCoord.xy * uSeed);\n    float diff = (randomValue - 0.5) * uNoise;\n\n    // Un-premultiply alpha before applying the color matrix. See issue #3539.\n    if (color.a > 0.0) {\n        color.rgb /= color.a;\n    }\n\n    color.r += diff;\n    color.g += diff;\n    color.b += diff;\n\n    // Premultiply alpha again.\n    color.rgb *= color.a;\n\n    gl_FragColor = color;\n}\n";
 
@@ -75401,7 +75343,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 84 */
+/* 83 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75413,12 +75355,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	 */
 	'use strict';
 
-	var core = __webpack_require__(63);
-	var sprite = __webpack_require__(74);
-	var display = __webpack_require__(58);
-	var math = __webpack_require__(59);
-	var utils = __webpack_require__(44);
-	var settings = __webpack_require__(45);
+	var core = __webpack_require__(62);
+	var sprite = __webpack_require__(73);
+	var display = __webpack_require__(57);
+	var math = __webpack_require__(58);
+	var utils = __webpack_require__(43);
+	var settings = __webpack_require__(44);
 
 	var _tempMatrix = new math.Matrix();
 
@@ -75840,7 +75782,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 85 */
+/* 84 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75852,7 +75794,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	 */
 	'use strict';
 
-	var display = __webpack_require__(58);
+	var display = __webpack_require__(57);
 
 	/**
 	 * The instance name of the object.
@@ -75886,7 +75828,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 86 */
+/* 85 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75898,8 +75840,8 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 	 */
 	'use strict';
 
-	var display = __webpack_require__(58);
-	var math = __webpack_require__(59);
+	var display = __webpack_require__(57);
+	var math = __webpack_require__(58);
 
 	/**
 	 * Returns the global position of the displayObject. Does not depend on object scale, rotation and pivot.
@@ -75933,7 +75875,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 87 */
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -75947,12 +75889,12 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var math = __webpack_require__(59);
-	var constants = __webpack_require__(57);
-	var display = __webpack_require__(58);
-	var settings = __webpack_require__(45);
-	var utils = __webpack_require__(44);
+	var core = __webpack_require__(62);
+	var math = __webpack_require__(58);
+	var constants = __webpack_require__(56);
+	var display = __webpack_require__(57);
+	var settings = __webpack_require__(44);
+	var utils = __webpack_require__(43);
 
 	/**
 	 * Class controls cache for UV mapping from Texture normal space to BaseTexture normal space.
@@ -76734,7 +76676,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 88 */
+/* 87 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -76748,9 +76690,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var mesh = __webpack_require__(87);
-	var constants = __webpack_require__(57);
-	var core = __webpack_require__(63);
+	var mesh = __webpack_require__(86);
+	var constants = __webpack_require__(56);
+	var core = __webpack_require__(62);
 
 	var PlaneGeometry = /*@__PURE__*/(function (MeshGeometry) {
 	    function PlaneGeometry(width, height, segWidth, segHeight)
@@ -77561,7 +77503,7 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 
 /***/ }),
-/* 89 */
+/* 88 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*!
@@ -77575,9 +77517,9 @@ define(["api/SplunkVisualizationBase","api/SplunkVisualizationUtils"], function(
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	var core = __webpack_require__(63);
-	var sprite = __webpack_require__(74);
-	var ticker = __webpack_require__(61);
+	var core = __webpack_require__(62);
+	var sprite = __webpack_require__(73);
+	var ticker = __webpack_require__(60);
 
 	/**
 	 * An AnimatedSprite is a simple way to display an animation depicted by a list of textures.

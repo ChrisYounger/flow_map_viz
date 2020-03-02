@@ -6,14 +6,12 @@
 
 define([
     'api/SplunkVisualizationBase',
-    'api/SplunkVisualizationUtils',
     'jquery',
     'd3',
     'pixi.js'
 ],
 function(
     SplunkVisualizationBase,
-    vizUtils,
     $,
     d3,
     PIXI
@@ -70,7 +68,6 @@ function(
                 viz.data = in_data;
                 viz.config = {
                     maxnodes: "100",
-                    stop_when_not_visible: "yes",
                     node_repel_force: "1000",
                     node_center_force: "0.1",
                     positions: "",
@@ -110,8 +107,7 @@ function(
                     node_shadow_color: "#000000",
                     node_text_color: "#000000",
                     node_text_size: "12",
-                    node_radius: "2",
-                    newParticleSpawning: "t"
+                    node_radius: "2"
                 };
                 // Override defaults with selected items from the UI
                 for (var opt in in_config) {
@@ -166,7 +162,7 @@ function(
                 viz.linkDataMap = {};
                 viz.nodeData = [];
                 viz.linkData = [];
-                viz.delayUntilParticles = 100;
+                viz.delayUntilParticles = 300;
                 viz.isDragging = false;
                 viz.activeParticles = [];
                 viz.activeGenerators = [];
@@ -363,7 +359,7 @@ function(
                 viz.$container_wrap.empty();
                 if (viz.hasOwnProperty("timer")) {
                     viz.timer.stop(); 
-                    if (viz.config.renderer === "webgl") {
+                    if (viz.timer.hasOwnProperty("destroy")) {
                         viz.timer.destroy();
                     }
                 } 
@@ -737,7 +733,6 @@ function(
             if (! viz.linkDataMap.hasOwnProperty(id)){
                 viz.linkDataMap[id] = {
                     timeouts: {},
-                    intervals: {},
                     drawIteration: -1,
                 };
                 viz.linkData.push(viz.linkDataMap[id]);
@@ -803,8 +798,10 @@ function(
             var viz = this;
             return d3.drag()
                 .on("start", function(d) {
-                    for (var i = 0; i < viz.activeParticles.length; i++) {
-                        viz.activeParticles[i].sprite.destroy();
+                    if (viz.config.renderer === "webgl") {
+                        for (var i = 0; i < viz.activeParticles.length; i++) {
+                            viz.activeParticles[i].sprite.destroy();
+                        }
                     }
                     viz.activeParticles = [];
                     viz.stopAllParticles();
@@ -907,79 +904,48 @@ function(
             var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
             base_jitter = Number(base_jitter);
             var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-            if (viz.config.newParticleSpawning) {
-                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-                link_details.timeouts[particletype] = setTimeout(function(){
-                    if (link_details.hasOwnProperty("sx")) {
-                        viz.activeGenerators.push({
-                            //start: null,
-                            id: link_details.id,
-                            interval: particle_dispatch_delay,
-                            base_jitter: base_jitter,
-                            base_time: base_time,
-                            sx: link_details.sx,
-                            sy: link_details.sy,
-                            tx: link_details.tx,
-                            ty: link_details.ty,
-                            color: viz.particleTypes[particletype],
-                        });
-                    }
-                }, (Math.random() * particle_dispatch_delay));
-            } else {
-                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-                link_details.timeouts[particletype] = setTimeout(function(){
-                    viz.doParticle(link_details, particletype, base_time, base_jitter);
-                    // Start an ongoing timer for this particle
-                    link_details.intervals[particletype] = setInterval(function(){
-                        viz.doParticle(link_details, particletype, base_time, base_jitter);
-                    }, particle_dispatch_delay);
-                }, (Math.random() * particle_dispatch_delay));
-            }
+            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+            link_details.timeouts[particletype] = setTimeout(function(){
+                viz.activeGenerators.push({
+                    //start: null,
+                    id: link_details.id,
+                    interval: particle_dispatch_delay,
+                    base_jitter: base_jitter,
+                    base_time: base_time,
+                    link_details: link_details,
+                    color: viz.particleTypes[particletype],
+                });
+            }, (Math.random() * particle_dispatch_delay));
         },
 
         // check all particle generators and see if any new particles need to spawn
         spawnNewParticles: function(now) { 
             var i,g,jitter1,jitter2;
             var viz = this;
+            var count = 0;
             if (viz.isDragging) { return; }
             for (i = 0; i < viz.activeGenerators.length; i++) {
                 g = viz.activeGenerators[i];
                 if (! g.hasOwnProperty("start") || (g.start + g.interval) < now) {
-                    g.start = now;
-                    jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
-                    jitter2 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
-                    viz.activeParticles.push({
-                        sx: (jitter1 + g.sx),
-                        sy: (jitter2 + g.sy),
-                        tx: (jitter1 + g.tx),
-                        ty: (jitter2 + g.ty),
-                        color: g.color,
-                        duration: g.base_time + ((viz.getRandom() * g.base_time * 0.4) - g.base_time * 0.2)
-                    });
+                    // may start multiple particles if the max is larger than the refresh rate (60FPS)
+                    if (g.link_details.hasOwnProperty("sx")) {
+                        // 16 ms in 60 frames/sec
+                        var extras = Math.round(16.7 / g.interval);
+                        for (var j = 0; j < extras; j++) {
+                            g.start = now;
+                            jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+                            jitter2 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+                            viz.activeParticles.push({
+                                sx: (jitter1 + g.link_details.sx),
+                                sy: (jitter2 + g.link_details.sy),
+                                tx: (jitter1 + g.link_details.tx),
+                                ty: (jitter2 + g.link_details.ty),
+                                color: g.color,
+                                duration: g.base_time + ((viz.getRandom() * g.base_time * 0.4) - g.base_time * 0.2)
+                            });
+                        }
+                    }
                 }
-            }
-        },
-
-        //Creates the actual particle, transition it with random speed and it will be destroyed when it gets to the end
-        doParticle: function(link_details, particletype, base_time, base_jitter){
-            var viz = this;
-            // Do not start particles until stuff slows its movement
-            if (viz.isDragging) { return; }
-            // if browser window isnt visible then dont draw
-            if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
-                return;
-            }
-            var jitter1 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
-            var jitter2 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
-            if (link_details.hasOwnProperty("sx")) {
-                viz.activeParticles.push({
-                    sx: (jitter1 + link_details.sx),
-                    sy: (jitter2 + link_details.sy),
-                    tx: (jitter1 + link_details.tx),
-                    ty: (jitter2 + link_details.ty),
-                    color: viz.particleTypes[particletype],
-                    duration: base_time + ((viz.getRandom() * base_time * 0.4) - base_time * 0.2)
-                });
             }
         },
 
@@ -987,6 +953,7 @@ function(
         seedRandom: function() {
             var viz = this;
             viz.randoms = [];
+            viz.randoms_idx = 1;
             for (var i=1e6; i--;) {
                 viz.randoms.push(Math.random());
             }
@@ -994,7 +961,7 @@ function(
 
         getRandom: function() {
             var viz = this;
-            return ++i >= viz.randoms.length ? viz.randoms[i=0] : viz.randoms[i];
+            return ++viz.randoms_idx >= viz.randoms.length ? viz.randoms[viz.randoms_idx=0] : viz.randoms[viz.randoms_idx];
         },
 
         updateWebGL: function(){
@@ -1002,12 +969,11 @@ function(
             var now = (new Date).getTime();
             var i,p,t;
 
-            if (viz.config.newParticleSpawning) {
-                viz.spawnNewParticles(now);
-            }
+            viz.spawnNewParticles(now);
 
             for (i = viz.activeParticles.length - 1; i >= 0; i--) {
                 p = viz.activeParticles[i];
+                // if the start key doesnt exist, then the particle must have just spawned
                 if (! p.hasOwnProperty("start")) {
                     p.start = now;
                     p.sprite = PIXI.Sprite.from(viz.particleTexture);
@@ -1033,53 +999,35 @@ function(
             var viz = this;
             var now = (new Date).getTime();
             var i,x,y,p,t;
-            var deletes = [];
-            var prevcolor = null;
-            if (viz.config.newParticleSpawning) {
-                viz.spawnNewParticles(now);
-            }
+            viz.spawnNewParticles(now);
             // This could be optimised to only clear a line of pixels between the start and end point 
             // instead of doing a clearRect on the whole canvas. however this wouldnt be a huge benefit
             viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
-            for (i = 0; i < viz.activeParticles.length; i++) {
+            for (i = viz.activeParticles.length - 1; i >= 0; i--) {
                 p = viz.activeParticles[i];
-                // Try to reduce the amount of context switches by batching where possible.
-                // this could be more efficient if we did all good, then all warn then all errors
-                // however this would mean the errors are always layered on top and we want them interleaved.
-                if (prevcolor !== null && p.color !== prevcolor) {
-                    viz.context.fillStyle = prevcolor;
-                    viz.context.fill();
-                    viz.context.beginPath();
-                }
-                if (prevcolor === null) {
-                    viz.context.beginPath();
-                }
-                prevcolor = p.color;
                 if (! p.hasOwnProperty("start")) {
                     p.start = now;
                 }
                 t = ((now - p.start) / p.duration);
-                // if particle made it to the end
-                if (t > 1) {
-                    deletes.push(i);
-                    continue;
+                // if particle is not yet at the target
+                if (t < 1) {
+                    x = Math.floor(p.sx * (1 - t) + p.tx * t);
+                    y = Math.floor(p.sy * (1 - t) + p.ty * t);
+                    viz.context.beginPath();
+                    if (viz.config.particle_blur !== "0") {
+                        viz.context.shadowColor = p.color;
+                        viz.context.shadowBlur = viz.config.particle_blur;
+                        viz.context.shadowOffsetX = 0;
+                        viz.context.shadowOffsetY = 0;
+                    }
+                    viz.context.moveTo(x + viz.config.particle_size, y);
+                    viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
+                    viz.context.fillStyle = p.color;
+                    viz.context.fill();
+                } else {
+                    // particle has reached target
+                    viz.activeParticles.splice(i, 1);
                 }
-                x = Math.floor(p.sx * (1 - t) + p.tx * t);
-                y = Math.floor(p.sy * (1 - t) + p.ty * t);
-                if (viz.config.particle_blur !== "0") {
-                    viz.context.shadowColor = p.color;
-                    viz.context.shadowBlur = viz.config.particle_blur;
-                    viz.context.shadowOffsetX = 0;
-                    viz.context.shadowOffsetY = 0;
-                }
-                viz.context.moveTo(x + viz.config.particle_size, y);
-                viz.context.arc(x, y, viz.config.particle_size, 0, 2 * Math.PI);
-            }
-            if (prevcolor !== null) {
-                viz.context.fill();
-            }
-            for (i = deletes.length - 1; i >= 0; i--) {
-                viz.activeParticles.splice(deletes[i], 1);
             }
         },
 
@@ -1094,6 +1042,7 @@ function(
         },
 
         stopParticleGenerator: function(link_details){
+            var viz = this;
             for (var i = viz.activeGenerators.length - 1; i >= 0; i--) {
                 if (viz.activeGenerators[i].id === link_details.id) {
                     viz.activeGenerators.splice(i, 1);
@@ -1106,7 +1055,6 @@ function(
             for (var particletype in viz.particleTypes) {
                 if (viz.particleTypes.hasOwnProperty(particletype)) {
                     clearTimeout(link_details.timeouts[particletype]);
-                    clearTimeout(link_details.intervals[particletype]);
                 }
             }
         },
