@@ -922,7 +922,6 @@ function(
         spawnNewParticles: function(now) { 
             var i,g,jitter1,jitter2;
             var viz = this;
-            var count = 0;
             if (viz.isDragging) { return; }
             for (i = 0; i < viz.activeGenerators.length; i++) {
                 g = viz.activeGenerators[i];
