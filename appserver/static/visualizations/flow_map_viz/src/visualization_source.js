@@ -162,7 +162,7 @@ function(
                 viz.linkDataMap = {};
                 viz.nodeData = [];
                 viz.linkData = [];
-                viz.delayUntilParticles = 300;
+                viz.delayUntilParticles = 500;
                 viz.isDragging = false;
                 viz.activeParticles = [];
                 viz.activeGenerators = [];
@@ -930,7 +930,7 @@ function(
                     // may start multiple particles if the max is larger than the refresh rate (60FPS)
                     if (g.link_details.hasOwnProperty("sx")) {
                         // 16 ms in 60 frames/sec
-                        var extras = Math.round(16.7 / g.interval);
+                        var extras = Math.ceil(16.7 / g.interval);
                         for (var j = 0; j < extras; j++) {
                             g.start = now;
                             jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
