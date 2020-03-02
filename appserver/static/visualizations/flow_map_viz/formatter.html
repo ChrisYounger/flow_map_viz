@@ -316,10 +316,10 @@
                 </splunk-radio-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Stop when backgrounded" help="">
-                <splunk-radio-input name="{{VIZ_NAMESPACE}}.stop_when_not_visible" value="yes">
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
+        <splunk-control-group label="Renderer" help="">
+                <splunk-radio-input name="{{VIZ_NAMESPACE}}.renderer" value="webgl">
+                        <option value="canvas">Canvas</option>
+                        <option value="webgl">WebGL</option>
                 </splunk-radio-input>
         </splunk-control-group>
 

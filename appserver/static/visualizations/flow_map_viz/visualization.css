@@ -2,7 +2,9 @@
     position:relative;
     margin: auto;
 }
-.flow_map_viz-canvas,
+
+.flow_map_viz-container > canvas,
+/*.flow_map_viz-canvas,*/
 .flow_map_viz-svg,
 .flow_map_viz-svgNodes,
 .flow_map_viz-linklabels,

@@ -8,13 +8,15 @@ define([
     'api/SplunkVisualizationBase',
     'api/SplunkVisualizationUtils',
     'jquery',
-    'd3'
+    'd3',
+    'pixi.js'
 ],
 function(
     SplunkVisualizationBase,
     vizUtils,
     $,
-    d3
+    d3,
+    PIXI
 ) {
     var vizObj = {
         initialize: function() {
@@ -24,6 +26,7 @@ function(
             viz.instance_id_ctr = 0;
             viz.$container_wrap = $(viz.el);
             viz.$container_wrap.addClass("flow_map_viz-container");
+            viz.seedRandom();
         },
 
         formatData: function(data) {
@@ -32,7 +35,6 @@ function(
 
         updateView: function(data, config) {
             var viz = this;
-            if (typeof data === "undefined") { return; }
             viz.scheduleDraw(data, config);
         },
 
@@ -64,7 +66,7 @@ function(
             }
 
             // in_data might be blank if the reflow method was called
-            if (typeof in_data !== "undefined") {
+            if (typeof in_data !== "undefined" && typeof in_config !== "undefined") {
                 viz.data = in_data;
                 viz.config = {
                     maxnodes: "100",
@@ -77,7 +79,7 @@ function(
                     background_mode: "custom",
                     background_color: "#ffffff",
                     new_labeling: "yes",
-                    //renderer: "canvas",
+                    renderer: "webgl",
                     width: "",
 
                     link_speed: "90",
@@ -109,6 +111,7 @@ function(
                     node_text_color: "#000000",
                     node_text_size: "12",
                     node_radius: "2",
+                    newParticleSpawning: "t"
                 };
                 // Override defaults with selected items from the UI
                 for (var opt in in_config) {
@@ -121,18 +124,27 @@ function(
                 });
             }
 
-            viz.particleTypes = {
-                good:  viz.config.particle_good_color,
-                warn:  viz.config.particle_warn_color,
-                error: viz.config.particle_error_color,
-            };
+            if (viz.config.renderer === "canvas") {
+                viz.particleTypes = {
+                    good:  viz.config.particle_good_color,
+                    warn:  viz.config.particle_warn_color,
+                    error: viz.config.particle_error_color,
+                };
+            } else {
+                // store colors as hex numerics
+                viz.particleTypes = {
+                    good:  +("0x" + tinycolor(viz.config.particle_good_color).toHex()),
+                    warn:  +("0x" + tinycolor(viz.config.particle_warn_color).toHex()),
+                    error: +("0x" + tinycolor(viz.config.particle_error_color).toHex()),
+                };
+            }
+
 
             // Keep track of the container size the config used so we know if we need to redraw the whole page
             viz.config.containerHeight = viz.$container_wrap.height();
             viz.config.containerWidth = viz.$container_wrap.width();
             var serialised = JSON.stringify(viz.config);
             if (viz.alreadyDrawn !== serialised) {
-                //console.log("conf changed", serialised, viz.alreadyDrawn);
                 viz.doRemove();
                 viz.alreadyDrawn = serialised;
             }
@@ -154,9 +166,10 @@ function(
                 viz.linkDataMap = {};
                 viz.nodeData = [];
                 viz.linkData = [];
-                viz.delayUntilParticles = 1000;
+                viz.delayUntilParticles = 100;
                 viz.isDragging = false;
                 viz.activeParticles = [];
+                viz.activeGenerators = [];
             }
 
             // loop through data
@@ -208,6 +221,7 @@ function(
             for (k = viz.linkData.length - 1; k >= 0 ; k--) {
                 if (viz.drawIteration !== viz.linkData[k].drawIteration) {
                     // link has been removed, stop particles 
+                    viz.stopParticleGenerator(viz.linkData[k]);
                     viz.stopParticles(viz.linkData[k]);
                     delete viz.linkDataMap[viz.linkData[k].id];
                     viz.linkData.splice(k, 1);
@@ -349,9 +363,36 @@ function(
                 viz.$container_wrap.empty();
                 if (viz.hasOwnProperty("timer")) {
                     viz.timer.stop(); 
+                    if (viz.config.renderer === "webgl") {
+                        viz.timer.destroy();
+                    }
                 } 
                 viz.$container_wrap.append(viz.svg.node());
-                //if (viz.config.renderer === "canvas") {
+                if (viz.config.renderer === "webgl") {
+                    viz.app = new PIXI.Application({ antialias: true, transparent: true, width: viz.config.containerWidth, height: viz.config.containerHeight });
+                    viz.$container_wrap.append( viz.app.view );
+                    var gr = new PIXI.Graphics();
+                    gr.beginFill(0xFFFFFF);
+                    gr.lineStyle(0); // set the lineStyle to zero so the particles don't have an outline
+                    gr.drawCircle(0, 0, viz.config.particle_size);
+                    gr.endFill();
+                    viz.particleTexture = viz.app.renderer.generateTexture(gr);
+                    viz.stage = new PIXI.Container();
+                    if (viz.config.particle_blur !== "0" && viz.config.particle_blur !== "") {
+                        viz.stage.filters = [new PIXI.filters.BlurFilter(viz.config.particle_blur)];//
+                    }
+                    viz.app.stage.addChild(viz.stage);
+                    viz.timer = viz.app.ticker.add(function(delta){
+                        viz.updateWebGL();
+                    });
+                    //console.log("isWebGLSupported=", PIXI.utils.isWebGLSupported()); //true
+                    // if (viz.app.type == PIXI.WEBGL_RENDERER){
+                    //     console.log('Using WebGL');
+                    // } else {
+                    //     console.log('Using fallback Canvas');
+                    // };
+
+                } else {
                     viz.canvas = d3.create("canvas")
                         .attr("class", "flow_map_viz-canvas")
                         .attr("width", viz.config.containerWidth)
@@ -361,7 +402,7 @@ function(
                     viz.timer = d3.timer(function() {
                         viz.updateCanvas();
                     });
-                //}
+                }
 
                 // Add groups in the correct order for layering
                 viz.linkGroup = viz.svg.append("g")
@@ -615,7 +656,6 @@ function(
                     });
 
             // redo particles
-            //console.log("finishing update");
             clearTimeout(viz.startParticlesTimeout);
             viz.startParticlesTimeout = setTimeout(function(){
                 viz.startParticles();
@@ -763,7 +803,11 @@ function(
             var viz = this;
             return d3.drag()
                 .on("start", function(d) {
+                    for (var i = 0; i < viz.activeParticles.length; i++) {
+                        viz.activeParticles[i].sprite.destroy();
+                    }
                     viz.activeParticles = [];
+                    viz.stopAllParticles();
                     viz.isDragging = true;
                     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
                     d.fx = d.x;
@@ -863,17 +907,60 @@ function(
             var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
             base_jitter = Number(base_jitter);
             var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
-            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
-            link_details.timeouts[particletype] = setTimeout(function(){
-                viz.doParticle(link_details, particletype, base_time, base_jitter);
-                // Start an ongoing timer for this particle
-                link_details.intervals[particletype] = setInterval(function(){
+            if (viz.config.newParticleSpawning) {
+                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+                link_details.timeouts[particletype] = setTimeout(function(){
+                    if (link_details.hasOwnProperty("sx")) {
+                        viz.activeGenerators.push({
+                            //start: null,
+                            id: link_details.id,
+                            interval: particle_dispatch_delay,
+                            base_jitter: base_jitter,
+                            base_time: base_time,
+                            sx: link_details.sx,
+                            sy: link_details.sy,
+                            tx: link_details.tx,
+                            ty: link_details.ty,
+                            color: viz.particleTypes[particletype],
+                        });
+                    }
+                }, (Math.random() * particle_dispatch_delay));
+            } else {
+                // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
+                link_details.timeouts[particletype] = setTimeout(function(){
                     viz.doParticle(link_details, particletype, base_time, base_jitter);
-                }, particle_dispatch_delay);
-            }, (Math.random() * particle_dispatch_delay));
+                    // Start an ongoing timer for this particle
+                    link_details.intervals[particletype] = setInterval(function(){
+                        viz.doParticle(link_details, particletype, base_time, base_jitter);
+                    }, particle_dispatch_delay);
+                }, (Math.random() * particle_dispatch_delay));
+            }
         },
 
-        // Creates the actual particle, transition it with random speed and it will be destroyed when it gets to the end
+        // check all particle generators and see if any new particles need to spawn
+        spawnNewParticles: function(now) { 
+            var i,g,jitter1,jitter2;
+            var viz = this;
+            if (viz.isDragging) { return; }
+            for (i = 0; i < viz.activeGenerators.length; i++) {
+                g = viz.activeGenerators[i];
+                if (! g.hasOwnProperty("start") || (g.start + g.interval) < now) {
+                    g.start = now;
+                    jitter1 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+                    jitter2 = Math.ceil(g.base_jitter * viz.getRandom()) - (g.base_jitter / 2);
+                    viz.activeParticles.push({
+                        sx: (jitter1 + g.sx),
+                        sy: (jitter2 + g.sy),
+                        tx: (jitter1 + g.tx),
+                        ty: (jitter2 + g.ty),
+                        color: g.color,
+                        duration: g.base_time + ((viz.getRandom() * g.base_time * 0.4) - g.base_time * 0.2)
+                    });
+                }
+            }
+        },
+
+        //Creates the actual particle, transition it with random speed and it will be destroyed when it gets to the end
         doParticle: function(link_details, particletype, base_time, base_jitter){
             var viz = this;
             // Do not start particles until stuff slows its movement
@@ -882,22 +969,64 @@ function(
             if (viz.config.stop_when_not_visible === "yes" && "visibilityState" in document && document.visibilityState !== 'visible') {
                 return;
             }
-            var jitter1 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
-            var jitter2 = Math.ceil(base_jitter * Math.random()) - (base_jitter / 2);
-            //if (viz.config.renderer === "canvas") {
-                // TODO if just updated dont add anything new for a bit
-                //console.log("adding new particle");
-                if (link_details.hasOwnProperty("sx")) {
-                    viz.activeParticles.push({
-                        sx: (jitter1 + link_details.sx),
-                        sy: (jitter2 + link_details.sy),
-                        tx: (jitter1 + link_details.tx),
-                        ty: (jitter2 + link_details.ty),
-                        color: viz.particleTypes[particletype],
-                        duration: base_time + ((Math.random() * base_time * 0.4) - base_time * 0.2)
-                    });
+            var jitter1 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
+            var jitter2 = Math.ceil(base_jitter * viz.getRandom()) - (base_jitter / 2);
+            if (link_details.hasOwnProperty("sx")) {
+                viz.activeParticles.push({
+                    sx: (jitter1 + link_details.sx),
+                    sy: (jitter2 + link_details.sy),
+                    tx: (jitter1 + link_details.tx),
+                    ty: (jitter2 + link_details.ty),
+                    color: viz.particleTypes[particletype],
+                    duration: base_time + ((viz.getRandom() * base_time * 0.4) - base_time * 0.2)
+                });
+            }
+        },
+
+        // prepopulate 1 million random numbers becuase it makes it quicker later
+        seedRandom: function() {
+            var viz = this;
+            viz.randoms = [];
+            for (var i=1e6; i--;) {
+                viz.randoms.push(Math.random());
+            }
+        },
+
+        getRandom: function() {
+            var viz = this;
+            return ++i >= viz.randoms.length ? viz.randoms[i=0] : viz.randoms[i];
+        },
+
+        updateWebGL: function(){
+            var viz = this;
+            var now = (new Date).getTime();
+            var i,p,t;
+
+            if (viz.config.newParticleSpawning) {
+                viz.spawnNewParticles(now);
+            }
+
+            for (i = viz.activeParticles.length - 1; i >= 0; i--) {
+                p = viz.activeParticles[i];
+                if (! p.hasOwnProperty("start")) {
+                    p.start = now;
+                    p.sprite = PIXI.Sprite.from(viz.particleTexture);
+                    p.sprite.anchor.set(0.5);
+                    p.sprite.tint = p.color;
+                    viz.stage.addChild(p.sprite);
                 }
-            //}
+                t = ((now - p.start) / p.duration);
+                // if particle is not yet at the target
+                if (t < 1) {
+                    p.sprite.x = Math.floor(p.sx * (1 - t) + p.tx * t);
+                    p.sprite.y = Math.floor(p.sy * (1 - t) + p.ty * t);
+
+                } else {
+                    // particle has reached target
+                    p.sprite.destroy();
+                    viz.activeParticles.splice(i, 1);
+                }
+            }
         },
 
         updateCanvas: function() {
@@ -906,6 +1035,9 @@ function(
             var i,x,y,p,t;
             var deletes = [];
             var prevcolor = null;
+            if (viz.config.newParticleSpawning) {
+                viz.spawnNewParticles(now);
+            }
             // This could be optimised to only clear a line of pixels between the start and end point 
             // instead of doing a clearRect on the whole canvas. however this wouldnt be a huge benefit
             viz.context.clearRect(0, 0, viz.config.containerWidth, viz.config.containerHeight);
@@ -953,6 +1085,7 @@ function(
 
         stopAllParticles: function() {
             var viz = this;
+            viz.activeGenerators = [];
             if (viz.hasOwnProperty("linkData")) {
                 for (var i = 0; i < viz.linkData.length; i++) {
                     viz.stopParticles(viz.linkData[i]);
@@ -960,12 +1093,20 @@ function(
             }
         },
 
+        stopParticleGenerator: function(link_details){
+            for (var i = viz.activeGenerators.length - 1; i >= 0; i--) {
+                if (viz.activeGenerators[i].id === link_details.id) {
+                    viz.activeGenerators.splice(i, 1);
+                }
+            }
+        }, 
+
         stopParticles: function(link_details) {
             var viz = this;
             for (var particletype in viz.particleTypes) {
                 if (viz.particleTypes.hasOwnProperty(particletype)) {
                     clearTimeout(link_details.timeouts[particletype]);
-                    clearInterval(link_details.intervals[particletype]);
+                    clearTimeout(link_details.intervals[particletype]);
                 }
             }
         },
@@ -1059,7 +1200,10 @@ function(
 
         // Override to respond to re-sizing events
         reflow: function() {
-            this.scheduleDraw();
+            var viz = this;
+            if (viz.hasOwnProperty("config")) { 
+                viz.scheduleDraw();
+            }
         },
 
         // Called when removed. This happens if using the viz not in a dashboard, and you rerun search
