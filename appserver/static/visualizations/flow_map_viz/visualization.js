@@ -692,18 +692,26 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                        }
 	                    });
 
-	            // redo particles
-	            clearTimeout(viz.startParticlesTimeout);
-	            viz.startParticlesTimeout = setTimeout(function(){
-	                viz.startParticles();
-	            }, viz.delayUntilParticles);
-
+	            viz.startParticlesSoon();
 
 	            // trigger force layout
 	            viz.simulation.nodes(viz.nodeData);
 	            viz.simulation.force("link").links(viz.linkData);
 	            viz.updatePositions();
 	            viz.simulation.alpha(0.3).restart();
+	        },
+
+	        startParticlesSoon: function(){
+	            var viz = this;
+	            clearTimeout(viz.startParticlesTimeout);
+	            viz.startParticlesTimeout = setTimeout(function(){
+	                viz.startParticles();
+	                // In another 5 seconds, redo the particles, becuase they might have floated a bit
+	                clearTimeout(viz.startParticlesTimeout);
+	                viz.startParticlesTimeout = setTimeout(function(){
+	                    viz.startParticles();
+	                }, 5000);
+	            }, viz.delayUntilParticles);
 	        },
 
 	        setTokens: function(tokens) {
@@ -876,10 +884,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    viz.isDragging = false;
 	                    viz.positions[d.id] = "" + (Math.round(d.fx / viz.config.containerWidth * viz.positionMultiplier) / (viz.positionMultiplier / 100)) + "," + (Math.round(d.fy / viz.config.containerHeight * viz.positionMultiplier) / (viz.positionMultiplier / 100));
 	                    // restart particles again
-	                    clearTimeout(viz.startParticlesTimeout);
-	                    viz.startParticlesTimeout = setTimeout(function(){
-	                        viz.startParticles();
-	                    }, viz.delayUntilParticles);
+	                    viz.startParticlesSoon();
 	                    if (!d3.event.active) simulation.alphaTarget(0);
 	                    viz.positionsButton.css("opacity",1);
 	                    clearTimeout(viz.positionsButtonTimeout);
