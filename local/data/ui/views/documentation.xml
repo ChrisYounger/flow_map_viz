@@ -261,14 +261,17 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
 By default, the amount of particles shown is automatically ranged/scaled (using linear interpolation) based on the data supplied. The visualization finds the link that has the largest volume of (good + warn + error) and uses that as the upper bound. The formatter option "Particles" > "Data domain", allows manually defining the range that the data is expected to fall into. The value can be set either as a single value representing the maximum (min will default to 0) or a comma seperated pair of numbers (min,max). 
 <br /><br /><br /><br />
 </p>
-<h1>Drilldowns , tokens and links</h1>
+<h1>Tokens and Drilldowns</h1>
 <p>
 <br />
-There are no built-in drilldowns with this visualization. If you need a drilldown, enable the "Advanced" &gt; "HTML Labels" formatter option, and then set the "label" data field to include a html "a" tag to link to your required destination. E.g.
-<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing_query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">eval</span><span style="color: #d4d4d4;"> label = </span><span style="color: #ce9178;">"&lt;a href='search?q="</span><span style="color: #d4d4d4;"> + drilldown + </span><span style="color: #ce9178;">"' target='_blank' style='text-decoration:none;'&gt;"</span><span style="color: #d4d4d4;"> + node_label + </span><span style="color: #ce9178;">"&lt;/a&gt;"</span></span><br/></div>
-<br />
-When clicking a node, several tokens will be set (e.g. <code>$click.value$</code>), and logged to the browser console. Hit F12 to open browser developer tools to observe what tokens are being set. If the field <code>drilldown</code> exists on a node, then this value will be used for <code>$click.value$</code>, otherwise it will be the node id.
-<br /><br /><br /><br />
+Tokens will always be set when clicking on nodes or link labels. Hit "F12" to open browser developer tools, then open the "Console" to observe how tokens are being set. If the data contains a field called "drilldown" this will be included as a token.<br /><br />
+<strong>Nodes:</strong> <code>$flow_map_viz-label$</code>, <code>$flow_map_viz-node$</code>, <code>$flow_map_viz-drilldown$</code>, <code>$flow_map_viz-type$</code><br />
+<strong>Links:</strong> <code>$flow_map_viz-label$</code>, <code>$flow_map_viz-link$</code>, <code>$flow_map_viz-drilldown$</code>, <code>$flow_map_viz-type$</code>, <code>$flow_map_viz-from$</code>, <code>$flow_map_viz-to$</code><br /><br />
+
+Note that link labels can be used for "drilldowns" to other Splunk dashboards etc. However that as nodes can be dragged to reposition, these can't be used for drilldowns.<br />
+A work-around for drilldown on nodes, enable the "Advanced" &gt; "HTML Labels" formatter option, and then set the "label" data field to include a html "a" tag to link to your required destination. E.g.
+<div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing_query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">eval</span><span style="color: #d4d4d4;"> label = </span><span style="color: #ce9178;">"&lt;a href='search?q="</span><span style="color: #d4d4d4;"> + drilldown + </span><span style="color: #ce9178;">"' target='_blank'&gt;"</span><span style="color: #d4d4d4;"> + node_label + </span><span style="color: #ce9178;">"&lt;/a&gt;"</span></span><br/></div>
+<br /><br /><br />
 </p>
 <h1>Building a complex flow map using a lookup</h1>
 <p>

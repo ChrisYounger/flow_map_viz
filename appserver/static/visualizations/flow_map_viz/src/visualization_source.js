@@ -519,28 +519,12 @@ function(
                     var tokens = {
                         "flow_map_viz-label": d.label,
                         "flow_map_viz-node": d.id,
+                        "flow_map_viz-type": "node",
                     };
                     if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
-                        tokens["click.name"] = "drilldown";
-                        tokens["click.value"] = d.drilldown;
                         tokens["flow_map_viz-drilldown"] = d.drilldown;
-                    } else {
-                        tokens["click.name"] = "node";
-                        tokens["click.value"] = d.id;
                     }
-                    var defaultTokenModel = splunkjs.mvc.Components.get('default');
-                    var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
-                    for (var token_name in tokens) {
-                        if (tokens.hasOwnProperty(token_name)) {
-                            console.log("Setting token $" + token_name + "$ to \"" + tokens[token_name] + "\"");
-                            if (defaultTokenModel) {
-                                defaultTokenModel.set(token_name, tokens[token_name]);
-                            }
-                            if (submittedTokenModel) {
-                                submittedTokenModel.set(token_name, tokens[token_name]);
-                            }
-                        }
-                    }
+                    viz.setTokens(tokens);
                 });
 
             // Reselect everything
@@ -627,6 +611,7 @@ function(
                 .join("div")
                     .attr("class", "flow_map_viz-linklabel")
                     .style("visibility", "hidden")
+                    .style("cursor", function(d){ return (d.hasOwnProperty("drilldown") && d.drilldown !== "") ? "pointer" : ""; })
                     .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
                     .attr("title", function(d) { return d.tooltip; })
                     .style("text-shadow", function(d){
@@ -641,6 +626,25 @@ function(
                             node.style.left =  Number(d.labelx) - 100 + "px";
                         }
                         node.style.visibility = "";
+                    })
+                    .on("click", function(d){
+                        var tokens = {
+                            "flow_map_viz-label": d.label,
+                            "flow_map_viz-link": d.id,
+                            "flow_map_viz-from": d.source.id,
+                            "flow_map_viz-to": d.target.id,
+                            "flow_map_viz-type": "link",
+                        };
+                        if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
+                            tokens["flow_map_viz-drilldown"] = d.drilldown;
+                        }
+                        viz.setTokens(tokens);
+                        if (tokens.hasOwnProperty("flow_map_viz-drilldown")) {
+                            viz.drilldown({
+                                action: SplunkVisualizationBase.FIELD_VALUE_DRILLDOWN,
+                                data: tokens
+                            }, d3.event);
+                        }
                     });
 
             // redo particles
@@ -657,6 +661,21 @@ function(
             viz.simulation.alpha(0.3).restart();
         },
 
+        setTokens: function(tokens) {
+            var defaultTokenModel = splunkjs.mvc.Components.get('default', {create: true});
+            var submittedTokenModel = splunkjs.mvc.Components.get('submitted', {create: true});
+            for (var token_name in tokens) {
+                if (tokens.hasOwnProperty(token_name)) {
+                    console.log("Setting token $" + token_name + "$ to \"" + tokens[token_name] + "\"");
+                    if (defaultTokenModel) {
+                        defaultTokenModel.set(token_name, tokens[token_name]);
+                    }
+                    if (submittedTokenModel) {
+                        submittedTokenModel.set(token_name, tokens[token_name]);
+                    }
+                }
+            }
+        },
 
         // read a row of input data and put it into a normalisaed object
         newNode: function(id, opts, dataorder){
@@ -748,6 +767,7 @@ function(
                 viz.linkDataMap[id].labely = "0";
                 viz.linkDataMap[id].sourcepoint = "";
                 viz.linkDataMap[id].targetpoint = "";
+                viz.linkDataMap[id].drilldown = "";
                 viz.linkDataMap[id].tooltip = null;
                 viz.linkDataMap[id].label = null;
             }
@@ -764,6 +784,7 @@ function(
             viz.linkDataMap[id].labely = opts.hasOwnProperty("labely") && opts.labely !== "" ? opts.labely : viz.linkDataMap[id].labely;
             viz.linkDataMap[id].sourcepoint = isFromLink && opts.hasOwnProperty("fromside") ? opts.fromside : viz.linkDataMap[id].sourcepoint;
             viz.linkDataMap[id].targetpoint = isToLink && opts.hasOwnProperty("toside") ? opts.toside : viz.linkDataMap[id].targetpoint;
+            viz.linkDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : viz.linkDataMap[id].drilldown;
             viz.linkDataMap[id].tooltip = opts.hasOwnProperty("tooltip") ? opts.tooltip : viz.linkDataMap[id].tooltip;
             viz.linkDataMap[id].label = opts.hasOwnProperty("label") ? opts.label : viz.linkDataMap[id].label;
 
