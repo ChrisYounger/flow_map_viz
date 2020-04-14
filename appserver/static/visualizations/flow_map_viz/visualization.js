@@ -139,6 +139,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    particle_spread: "5",
 	                    particle_size: "3",
 	                    particle_blur: "0",
+	                    particle_slow: "",
 
 	                    node_width: "120",
 	                    node_height: "30",
@@ -344,6 +345,13 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                viz.particleMultiplier = viz.particleMax / (particle_domain_max - particle_domain_min);
 	            }
 
+	            var particle_slow = Number(viz.config.particle_slow);
+	            if (viz.config.particle_slow !== "" && particle_slow > 0) {
+	                viz.particle_slow = 1 - (1 - Math.max(0,Math.min(1, (viz.totalParticles - particle_domain_min) / (particle_domain_max - particle_domain_min)))) * (Math.min(99, particle_slow) / 100);
+	            } else {
+	                viz.particle_slow = 1;
+	            }
+
 	            // Sort the lists back into the order it arrived
 	            viz.nodeData.sort(function(a,b) {
 	                return a.dataorder - b.dataorder;
@@ -486,9 +494,6 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                        viz.updatePositions();
 	                    });
 	            }
-
-	            // Stop the simulation while stuff is added/removed
-	            //viz.simulation.alphaTarget(0);
 
 	            // set the inital positions of nodes. JSON structure takes precedence, then the data, otherwise center
 	            var xy,dataxy;
@@ -706,17 +711,17 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            clearTimeout(viz.startParticlesTimeout);
 	            viz.startParticlesTimeout = setTimeout(function(){
 	                viz.startParticles();
-	                // In another 5 seconds, redo the particles, becuase they might have floated a bit
+	                // In another 2 seconds, redo the particles, becuase they might have floated a bit
 	                clearTimeout(viz.startParticlesTimeout);
 	                viz.startParticlesTimeout = setTimeout(function(){
 	                    viz.startParticles();
-	                }, 5000);
+	                }, 2000);
 	            }, viz.delayUntilParticles);
 	        },
 
 	        setTokens: function(tokens) {
-	            var defaultTokenModel = splunkjs.mvc.Components.get('default', {create: true});
-	            var submittedTokenModel = splunkjs.mvc.Components.get('submitted', {create: true});
+	            var defaultTokenModel = splunkjs.mvc.Components.get('default');
+	            var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
 	            for (var token_name in tokens) {
 	                if (tokens.hasOwnProperty(token_name)) {
 	                    console.log("Setting token $" + token_name + "$ to \"" + tokens[token_name] + "\"");
@@ -962,11 +967,12 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                                     Math.pow((link_details.ty) - (link_details.sy), 2));
 
 	            // The duration needs to also consider the length of the line (ms per pixel)
-	            var base_time = distance * (101 - Math.max(1, Math.min(100, Number(link_details.speed))));
+	            var base_time = distance * (101 - Math.max(1, Math.min(100, (viz.particle_slow * Number(link_details.speed)))));
+
 	            // add some jitter to the starting position
 	            var base_jitter = (Number(viz.config.particle_spread) < 0 ? link_details.width : viz.config.particle_spread);
 	            base_jitter = Number(base_jitter);
-	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier));
+	            var particle_dispatch_delay = (1000 / (link_details[particletype] * viz.particleMultiplier * viz.particle_slow));
 	            // randomise the time until the first particle, otherwise multiple nodes will move in step which doesnt look as good
 	            link_details.timeouts[particletype] = setTimeout(function(){
 	                viz.activeGenerators.push({

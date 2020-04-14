@@ -1,6 +1,5 @@
 [default]
 default.visualizations.custom.flow_map_viz.flow_map_viz.maxnodes = <string>
-default.visualizations.custom.flow_map_viz.flow_map_viz.stop_when_not_visible = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_repel_force = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_center_force = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.positions = <string>
@@ -24,6 +23,8 @@ default.visualizations.custom.flow_map_viz.flow_map_viz.particle_error_color = <
 default.visualizations.custom.flow_map_viz.flow_map_viz.particle_spread = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.particle_size = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.particle_blur = <string>
+default.visualizations.custom.flow_map_viz.flow_map_viz.particle_domain = <string>
+default.visualizations.custom.flow_map_viz.flow_map_viz.particle_slow = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_width = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_height = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_bg_color = <string>
@@ -35,3 +36,4 @@ default.visualizations.custom.flow_map_viz.flow_map_viz.node_shadow_color = <str
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_text_color = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_text_size = <string>
 default.visualizations.custom.flow_map_viz.flow_map_viz.node_radius = <string>
+default.visualizations.custom.flow_map_viz.flow_map_viz.width = <string>

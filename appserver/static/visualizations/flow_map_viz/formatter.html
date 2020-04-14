@@ -200,12 +200,16 @@
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_blur" value="0" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
         </splunk-control-group>
 
+        <splunk-control-group label="Autoscale to" help="Particles/sec per link. -1 to disable scaling. 0 to disable particles.">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_limit" value="60" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
+        </splunk-control-group>
+
         <splunk-control-group label="Data domain" help="A range, seperated by a comma. Leave blank to adapt to current data. See help for more info.">
                 <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_domain" value="" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
         </splunk-control-group>
 
-        <splunk-control-group label="Autoscale to" help="Particles/sec per link. -1 to disable scaling. 0 to disable particles.">
-                <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_limit" value="60" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
+        <splunk-control-group label="Slow particles by" help="%. Slow particles by this percentage when at low end of data domain..">
+                <splunk-text-input name="{{VIZ_NAMESPACE}}.particle_slow" value="" style="width:64px; vertical-align:top; display:inline-block; flex:none; margin-right:4px;"></splunk-text-input>
         </splunk-control-group>
 
         <splunk-control-group label="Good color" help="">
