@@ -474,6 +474,11 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <td>String</td>
 <td>A field that will be set to token <code>$flow_map_viz-drilldown$</code> when this node is clicked.</td>
 </tr>
+<tr>
+<td><code>tooltip</code></td>
+<td>String</td>
+<td>Specify a custom hover tooltip for the node. By default show the Node ID</td>
+</tr>
 </tbody>
 </table>
 <p><br /><br /><br /></p>
