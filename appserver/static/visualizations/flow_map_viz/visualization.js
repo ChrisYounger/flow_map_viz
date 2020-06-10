@@ -582,7 +582,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                .selectAll(".flow_map_viz-nodeset");
 
 	            viz.nodeSelection
-	                .attr("title", function(d){ return d.id; })
+	                .attr("title", function(d){ return d.hasOwnProperty("tooltip") && typeof d.tooltip !== "undefined" ? d.tooltip : d.id; })
 	                .style("width", function(d){ return d.width + "px"; })
 	                .style("height", function(d){ return d.height + "px"; })
 	                .style("opacity", function(d){ return d.opacity; })
@@ -619,7 +619,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    selection
 	                        .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
 	                        .select(".flow_map_viz-nodeicon")
-	                        .attr("class", function(d){ return (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon; })
+	                        .attr("class", function(d){ return  true ? "fas fa-" + d.icon : d.icon; })
 	                        .style("font-size", function(d){ return d.height + "px"; })
 	                        .style("color", function(d){ return d.color; })
 	                        .style("-webkit-text-stroke-color", function(d){ 
@@ -762,6 +762,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            viz.nodeDataMap[id].icon = opts.hasOwnProperty("icon") ? opts.icon : "";
 	            viz.nodeDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : "";
 	            viz.nodeDataMap[id].order = opts.hasOwnProperty("order") && opts.order !== "" ? opts.order : "50";
+	            viz.nodeDataMap[id].tooltip = opts.hasOwnProperty("tooltip") && typeof opts.tooltip !== "undefined" ? opts.tooltip : viz.nodeDataMap[id].tooltip;
 
 	            // Check numeric values are actually numeric
 	            if (isNaN(viz.nodeDataMap[id].labelx)) {
@@ -937,6 +938,16 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            var dump = JSON.stringify(viz.positions);
 	            console.log(dump.substr(1,dump.length-2));
 	            viz.copyTextToClipboard(dump.substr(1,dump.length-2));
+	            
+	            // Trying to find a hack way to set the positions, without needing to copy to clipboard. WIP
+	            // viz.$container_wrap.parents(".dashboard-element.viz").find(".icon-paintbrush").click();
+	            // setTimeout(function(){
+	            //     console.log($(".shared-vizcontrols-format-dialog.open li:nth-child(4) a").eq(0));
+	            //     $(".shared-vizcontrols-format-dialog.open li:nth-child(4) a").eq(0).click();
+	            //     $(".shared-vizcontrols-format-dialog.open li:nth-child(4) a").eq(0).click();
+	            //     $("[name=\"display.visualizations.custom.flow_map_viz.flow_map_viz.positions\"] input").val("hi!")
+	            // },3000); 
+
 	        },
 
 	        startParticles: function() {
@@ -1166,13 +1177,13 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            var viz = this;
 	            if (!navigator.clipboard) {
 	                viz.fallbackCopyTextToClipboard(text);
-	                return;
+	            } else {
+	                navigator.clipboard.writeText(text).then(function() {
+	                    viz.toast('Copied to clipboard! (now paste into Visualization settings/Advanced)');
+	                }, function (err) {
+	                    console.error('Async: Could not copy node positions to clipboard. Please hit F12 and check the console log for the positions string. This should be pasted into the Advanced settings.', err);
+	                });
 	            }
-	            navigator.clipboard.writeText(text).then(function () {
-	                viz.toast('Copied to clipboard! (now paste into settings)');
-	            }, function (err) {
-	                console.error('Async: Could not copy text: ', err);
-	            });
 	        },
 
 	        fallbackCopyTextToClipboard: function(text) {
@@ -1183,9 +1194,14 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            textArea.focus();
 	            textArea.select();
 	            try {
-	                viz.toast('Copied to clipboard! (now paste into settings)');
+	                var successful = document.execCommand('copy');
+	                if (successful) {
+	                    viz.toast('Copied to clipboard! (now paste into Visualization settings/Advanced)');
+	                } else {
+	                    console.error('Fallback2: Could not copy node positions to clipboard. Please hit F12 and check the console log for the positions string. This should be pasted into the Advanced settings.', err);
+	                }
 	            } catch (err) {
-	                console.error('Fallback: Oops, unable to copy', err);
+	                console.error('Fallback: Could not copy node positions to clipboard. Please hit F12 and check the console log for the positions string. This should be pasted into the Advanced settings.', err);
 	            }
 	            document.body.removeChild(textArea);
 	        },

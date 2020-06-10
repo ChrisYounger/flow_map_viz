@@ -383,6 +383,11 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <td>String</td>
 <td>Specify a custom label to occur on the line. If "allow HTML" is enabled in formatter options, this field can contain HTML such as &lt;br/&gt; to create a new line.</td>
 </tr>
+<tr>
+<td><code>drilldown</code></td>
+<td>String</td>
+<td>A field that will be set to token <code>$flow_map_viz-drilldown$</code> when this link label is clicked.</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -467,7 +472,7 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <tr>
 <td><code>drilldown</code></td>
 <td>String</td>
-<td>A value that will be set into the token <code>$click.value$</code> when the node is clicked. Otherwise the node id will be set.</td>
+<td>A field that will be set to token <code>$flow_map_viz-drilldown$</code> when this node is clicked.</td>
 </tr>
 </tbody>
 </table>
