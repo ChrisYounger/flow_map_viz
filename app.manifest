@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "2.0.0", 
+  "info": {
+    "title": "Flow Map Viz", 
+    "id": {
+      "group": null, 
+      "name": "flow_map_viz", 
+      "version": "___VERSION_NUMBER_REPLACE_ME___"
+    }, 
+    "author": [
+      {
+        "name": "Chris Younger", 
+        "email": null, 
+        "company": null
+      }
+    ], 
+    "releaseDate": null, 
+    "description": "Flow Map Viz", 
+    "classification": {
+      "intendedAudience": null, 
+      "categories": [], 
+      "developmentStatus": null
+    }, 
+    "commonInformationModels": null, 
+    "license": {
+      "name": null, 
+      "text": null, 
+      "uri": null
+    }, 
+    "privacyPolicy": {
+      "name": null, 
+      "text": null, 
+      "uri": null
+    }, 
+    "releaseNotes": {
+      "name": null, 
+      "text": "./README.md", 
+      "uri": null
+    }
+  }, 
+  "dependencies": null, 
+  "tasks": null, 
+  "inputGroups": null, 
+  "incompatibleApps": null, 
+  "platformRequirements": null, 
+  "supportedDeployments": ["*"], 
+  "targetWorkloads": ["_search_heads"]
+}
