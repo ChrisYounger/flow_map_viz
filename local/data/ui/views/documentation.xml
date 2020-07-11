@@ -16,8 +16,8 @@ path=\"IHS002---APP002\" label=\"\" good=1 ###
 path=\"APP001---DB\" label=\"4 requests/min&lt;br&gt;100ms\" good=4  ### 
 path=\"APP002---DB\" label=\"1 requests/min&lt;br&gt;2334ms\" warn=1 error=1### 
 
-node=DC1 label=\"Primary DC\" width=400 height=120 labely=-50 opacity=0.2   ### 
-node=DC2 label=\"Secondary DC\" width=400 height=120 labely=50 opacity=0.2    ### 
+node=DC1 label=\"Primary DC\" width=400 height=120 labely=-50 opacity=0.2  order=-1  ### 
+node=DC2 label=\"Secondary DC\" width=400 height=120 labely=50 opacity=0.2  order=-2   ### 
 node=LB label=\"F5\" icon=hdd labely=30 height=40  ### 
 node=Brisbane icon=users labely=30 height=40  ### 
 node=Sydney icon=users labely=30 height=40  ### 
@@ -376,7 +376,7 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <tr>
 <td><code>tooltip</code></td>
 <td>String</td>
-<td>Specify a custom hover tooltip for the line</td>
+<td>Specify a custom hover tooltip for the line.  Can use HTML if enabled in the formatting options.</td>
 </tr>
 <tr>
 <td><code>label</code></td>
@@ -477,7 +477,7 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <tr>
 <td><code>tooltip</code></td>
 <td>String</td>
-<td>Specify a custom hover tooltip for the node. By default show the Node ID</td>
+<td>Specify a custom hover tooltip for the node. By default show the Node ID. Can use HTML if enabled in the formatting options.</td>
 </tr>
 </tbody>
 </table>
@@ -593,7 +593,7 @@ If node data is stored in a lookup table, it can be added to an existing query l
         <option name="flow_map_viz.flow_map_viz.background_color">#ffffff</option>
         <option name="flow_map_viz.flow_map_viz.background_mode">custom</option>
         <option name="flow_map_viz.flow_map_viz.course_positions">yes</option>
-        <option name="flow_map_viz.flow_map_viz.labels_as_html">no</option>
+        <option name="flow_map_viz.flow_map_viz.labels_as_html">yes</option>
         <option name="flow_map_viz.flow_map_viz.line_style">solid</option>
         <option name="flow_map_viz.flow_map_viz.link_color">#cccccc</option>
         <option name="flow_map_viz.flow_map_viz.link_distance">200</option>

@@ -44,7 +44,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO:
+	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;// TODO:
 	// Add arrow mode
 	// highlight link/nodes/labels on hover (dim particles and other links).
 
@@ -101,9 +101,24 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                //("aborting: not under html body");
 	                return;
 	            }
+	            // Container can have no height if it is in a panel that isnt yet visible on the dashboard.
+	            // I believe the container might also have no size in other situations too
 	            if (viz.$container_wrap.height() <= 0) {
-	                //console.log("aborting: container has no height");
+	                //console.log("not drawing becuase container has no height");
+	                if (!viz.hasOwnProperty("resizeWatcher")) {
+	                    viz.resizeWatcher = setInterval(function(){
+	                        if (viz.$container_wrap.height() > 0) {
+	                            clearInterval(viz.resizeWatcher);
+	                            delete viz.resizeWatcher;
+	                            viz.scheduleDraw(in_data, in_config);
+	                        }
+	                    }, 1000);
+	                }
 	                return;
+	            }
+	            if (viz.hasOwnProperty("resizeWatcher")) {
+	                clearInterval(viz.resizeWatcher);
+	                delete viz.resizeWatcher;
 	            }
 
 	            // in_data might be blank if the reflow method was called
@@ -445,7 +460,13 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    });
 	                }
 
+	                viz.nodeLayers = ["fg","bg"];
+
 	                // Add groups in the correct order for layering
+	                viz.bgNodeGroup = d3.create("div")
+	                    .style("font", viz.config.node_text_size + "px sans-serif")
+	                    .style("color", viz.config.node_text_color)
+	                    .attr("class", "flow_map_viz-bgnodelabels");
 	                viz.linkGroup = viz.svg.append("g")
 	                    .attr("stroke-opacity", viz.config.link_opacity)
 	                    .attr("stroke", "#cccccc") // set a default in case user sets an invalid color
@@ -454,11 +475,12 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    .style("font", viz.config.link_text_size + "px sans-serif")
 	                    .style("color", viz.config.link_label_color)
 	                    .attr("class", "flow_map_viz-linklabels" + (viz.config.new_labeling==="yes" ? " flow_map_viz-setwidth" : ""));
-	                viz.nodeGroup = d3.create("div")
+	                viz.fgNodeGroup = d3.create("div")
 	                    .style("font", viz.config.node_text_size + "px sans-serif")
 	                    .style("color", viz.config.node_text_color)
 	                    .attr("class", "flow_map_viz-nodelabels");
-	                viz.$container_wrap.append(viz.linkLabelGroup.node(), viz.nodeGroup.node());
+	                viz.$container_wrap.prepend(viz.bgNodeGroup.node());
+	                viz.$container_wrap.append(viz.linkLabelGroup.node(), viz.fgNodeGroup.node());
 
 	                // Add a button that allows copying the current positions to the clipboard
 	                viz.positionsButton = $("<span class='flow_map_viz-copylink btn-pill'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
@@ -474,6 +496,43 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                        }, 5000);
 	                    });
 
+	                /* Some custom HTML tooltips on the flowmap.  */
+	                viz.domTooltip = $("<div class='flow_map_viz-tooltip_wrap' style='top:-1000px;left:-1000px;'></div>").appendTo(viz.$container_wrap);
+	                viz.$container_wrap.on("mousemove", function(evt) {
+	                    var c_offset = viz.$container_wrap.offset();
+	                    var c_width = viz.$container_wrap.width();
+	                    var c_height = viz.$container_wrap.height();
+	                    var x = evt.pageX - c_offset.left;
+	                    var y = evt.pageY - c_offset.top;
+	                    var pos = {};
+	                    if (x < (c_width * 0.7)) {
+	                        pos.left = (x + 30) + "px";
+	                        pos.right = "";
+	                    } else { 
+	                        pos.right = (c_width - x + 30) + "px";
+	                        pos.left = "";
+	                    }
+	                    if (y < (c_height * 0.7)) {
+	                        pos.top = y + "px";
+	                        pos.bottom = "";
+	                    } else { 
+	                        pos.bottom = (c_height - y) + "px";
+	                        pos.top = "";
+	                    }
+	                    viz.domTooltip.css(pos);
+	                });
+	                
+	                /* When the HTML tooltip goes over an icon, set the contents of the hover window  */
+	                viz.$container_wrap.hoverIntent({
+	                    selector: ".flow_map_viz-nodeset, .flow_map_viz-linklabel",
+	                    over: function(){
+	                        viz.domTooltip.empty().append($("<div class='flow_map_viz-tooltip'></div>").append($(this).attr("data-flow_map_viz-tooltip")));
+	                    },
+	                    out: function(){
+	                        viz.domTooltip.empty();
+	                    }
+	                });
+
 	                // Apply forces
 	                // These are the forces that move to the center
 	                var forceLink = d3.forceLink([]).id(function(d) { return d.id; }).distance(function(d) { 
@@ -488,7 +547,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    .force("link", forceLink)
 	                    .force("charge", forceCharge)
 	                    .force('x', forceX)
-	                    .force('y',  forceY)
+	                    .force('y', forceY)
 	                    .alphaTarget(0)
 	                    .on("tick", function() {
 	                        viz.updatePositions();
@@ -507,6 +566,8 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    }
 	                }
 	            }
+	            viz.bgNodeData = []
+	            viz.fgNodeData = []
 	            for (i = 0; i < viz.nodeData.length; i++){
 	                // If the dashboard has updated the fx might already be set
 	                if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
@@ -532,107 +593,115 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    viz.nodeData[i].x = viz.config.containerWidth / 2;
 	                    viz.nodeData[i].y = viz.config.containerHeight / 2;
 	                }
+	                if (viz.nodeData[i].order < 0) {
+	                    viz.bgNodeData.push(viz.nodeData[i]);
+	                } else {
+	                    viz.fgNodeData.push(viz.nodeData[i]);
+	                }
 	            }
 
-	            viz.nodeSelection = viz.nodeGroup
-	                .selectAll(".flow_map_viz-nodeset")
-	                .data(viz.nodeData, function(d){ return d.id; });
+	            for (var nodeLayerIdx = 0; nodeLayerIdx < viz.nodeLayers.length; nodeLayerIdx++) {
+	                
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"] = viz[viz.nodeLayers[nodeLayerIdx] + "NodeGroup"]
+	                    .selectAll(".flow_map_viz-nodeset")
+	                    .data(viz[viz.nodeLayers[nodeLayerIdx] + "NodeData"], function(d){ return d.id; });
+	                
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"].exit().remove();
 
-	            viz.nodeSelection.exit().remove();
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"].enter()
+	                    .append("div")
+	                    .attr("class", "flow_map_viz-nodeset") 
+	                    // Remove fixed position on double click
+	                    .on("dblclick", function(d){ 
+	                        d.fx = null;
+	                        d.fy = null;
+	                    })
+	                    .call(function(selection){
+	                        // This element is a background behind font awesome icons. otherwise it doesnt look as 
+	                        // good when you can see particles behind the icons. Has no effect when background is 
+	                        // transparent
+	                        selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                            .append("div")
+	                            .attr("class", "flow_map_viz-nodeiconbg")
+	                            .style("background-color", viz.config.background_color);
+	                        selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                            .append("i")
+	                            .attr("class", "flow_map_viz-nodeicon")
+	                            .style("-webkit-text-stroke-width", viz.config.node_border_width + "px");
+	                        selection
+	                            .append("div")
+	                            .attr("class", "flow_map_viz-nodelabel");
+	                    })
+	                    .call(viz.drag(viz.simulation))
+	                    .on("click", function(d){
+	                        var tokens = {
+	                            "flow_map_viz-label": d.label,
+	                            "flow_map_viz-node": d.id,
+	                            "flow_map_viz-type": "node",
+	                        };
+	                        if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
+	                            tokens["flow_map_viz-drilldown"] = d.drilldown;
+	                        }
+	                        viz.setTokens(tokens);
+	                    });
 
-	            viz.nodeSelection.enter()
-	                .append("div")
-	                .attr("class", "flow_map_viz-nodeset") 
-	                // Remove fixed position on double click
-	                .on("dblclick", function(d){ 
-	                    d.fx = null;
-	                    d.fy = null;
-	                })
-	                .call(function(selection){
-	                    // This element is a background behind font awesome icons. otherwise it doesnt look as 
-	                    // good when you can see particles behind the icons. Has no effect when background is 
-	                    // transparent
-	                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                        .append("div")
-	                        .attr("class", "flow_map_viz-nodeiconbg")
-	                        .style("background-color", viz.config.background_color);
-	                    selection.filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                        .append("i")
-	                        .attr("class", "flow_map_viz-nodeicon")
-	                        .style("-webkit-text-stroke-width", viz.config.node_border_width + "px");
-	                    selection
-	                        .append("div")
-	                        .attr("class", "flow_map_viz-nodelabel");
-	                })
-	                .call(viz.drag(viz.simulation))
-	                .on("click", function(d){
-	                    var tokens = {
-	                        "flow_map_viz-label": d.label,
-	                        "flow_map_viz-node": d.id,
-	                        "flow_map_viz-type": "node",
-	                    };
-	                    if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
-	                        tokens["flow_map_viz-drilldown"] = d.drilldown;
-	                    }
-	                    viz.setTokens(tokens);
-	                });
+	                // Reselect everything
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"] = viz[viz.nodeLayers[nodeLayerIdx] + "NodeGroup"]
+	                    .selectAll(".flow_map_viz-nodeset");
 
-	            // Reselect everything
-	            viz.nodeSelection = viz.nodeGroup
-	                .selectAll(".flow_map_viz-nodeset");
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"]
+	                    .attr("data-flow_map_viz-tooltip", function(d){ return d.hasOwnProperty("tooltip") && typeof d.tooltip !== "undefined" ? d.tooltip : d.id; })
+	                    .style("width", function(d){ return d.width + "px"; })
+	                    .style("height", function(d){ return d.height + "px"; })
+	                    .style("opacity", function(d){ return d.opacity; })
+	                    .style("z-index", function(d){ return Math.abs(d.order); })
+	                    .call(function(selection){
+	                        // set the label on all types
+	                        selection
+	                            .select(".flow_map_viz-nodelabel")
+	                            .style("transform", function(d){ return "translate(" + d.labelx + "px," + d.labely + "px)"; })
+	                            .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
 
-	            viz.nodeSelection
-	                .attr("title", function(d){ return d.hasOwnProperty("tooltip") && typeof d.tooltip !== "undefined" ? d.tooltip : d.id; })
-	                .style("width", function(d){ return d.width + "px"; })
-	                .style("height", function(d){ return d.height + "px"; })
-	                .style("opacity", function(d){ return d.opacity; })
-	                .style("z-index", function(d){ return d.order; })
-	                .call(function(selection){
-	                    // set the label on all types
-	                    selection
-	                        .select(".flow_map_viz-nodelabel")
-	                        .style("transform", function(d){ return "translate(" + d.labelx + "px," + d.labely + "px)"; })
-	                        .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; });
+	                        // non icon types (there will be unexpected results if a node changes between an icon and nonicon dynamically)
+	                        selection
+	                            .filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== "");})
+	                            .style("border", function(d){ 
+	                                if (viz.config.node_border_mode === "darker1") {
+	                                    return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(10).toString();
+	                                } else if (viz.config.node_border_mode === "darker2") {
+	                                    return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(20).toString();
+	                                }
+	                                return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
+	                            })
+	                            .style("box-shadow", function(d){ return viz.getShadow(d); })
+	                            .style("border-radius", function(d){ return d.rx + "px"; })
+	                            .style("background-color", function(d){ return d.color; });
 
-	                    // non icon types (there will be unexpected results if a node changes between an icon and nonicon dynamically)
-	                    selection
-	                        .filter(function(d){ return !(d.hasOwnProperty("icon") && d.icon !== "");})
-	                        .style("border", function(d){ 
-	                            if (viz.config.node_border_mode === "darker1") {
-	                                return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(10).toString();
-	                            } else if (viz.config.node_border_mode === "darker2") {
-	                                return viz.config.node_border_width + "px solid " + tinycolor(d.color).darken(20).toString();
-	                            }
-	                            return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
-	                        })
-	                        .style("box-shadow", function(d){ return viz.getShadow(d); })
-	                        .style("border-radius", function(d){ return d.rx + "px"; })
-	                        .style("background-color", function(d){ return d.color; });
+	                        // icon types - as font awesome icons
+	                        selection
+	                            .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                            .select(".flow_map_viz-nodeiconbg")
+	                            .style("width", function(d){ return d.height + "px"; })
+	                            .style("height", function(d){ return d.height + "px"; })
+	                            .style("border-radius", function(d){ return d.height + "px"; });
+	                        selection
+	                            .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
+	                            .select(".flow_map_viz-nodeicon")
+	                            .attr("class", function(d){ return  true ? "fas fa-" + d.icon : d.icon; })
+	                            .style("font-size", function(d){ return d.height + "px"; })
+	                            .style("color", function(d){ return d.color; })
+	                            .style("-webkit-text-stroke-color", function(d){ 
+	                                if (viz.config.node_border_mode === "darker1") {
+	                                    return tinycolor(d.color).darken(10).toString();
+	                                } else if (viz.config.node_border_mode === "darker2") {
+	                                    return tinycolor(d.color).darken(20).toString();
+	                                }
+	                                return viz.config.node_border_color;
+	                            })
+	                            .style("text-shadow", function(d){ return viz.getShadow(d); });
 
-	                    // icon types - as font awesome icons
-	                    selection
-	                        .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                        .select(".flow_map_viz-nodeiconbg")
-	                        .style("width", function(d){ return d.height + "px"; })
-	                        .style("height", function(d){ return d.height + "px"; })
-	                        .style("border-radius", function(d){ return d.height + "px"; });
-	                    selection
-	                        .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
-	                        .select(".flow_map_viz-nodeicon")
-	                        .attr("class", function(d){ return  true ? "fas fa-" + d.icon : d.icon; })
-	                        .style("font-size", function(d){ return d.height + "px"; })
-	                        .style("color", function(d){ return d.color; })
-	                        .style("-webkit-text-stroke-color", function(d){ 
-	                            if (viz.config.node_border_mode === "darker1") {
-	                                return tinycolor(d.color).darken(10).toString();
-	                            } else if (viz.config.node_border_mode === "darker2") {
-	                                return tinycolor(d.color).darken(20).toString();
-	                            }
-	                            return viz.config.node_border_color;
-	                        })
-	                        .style("text-shadow", function(d){ return viz.getShadow(d); });
-
-	                });
+	                    });
+	            }
 
 	            // Create the links (edges) as d3 objects
 	            viz.linkSelection = viz.linkGroup
@@ -663,11 +732,11 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    .style("visibility", "hidden")
 	                    .style("cursor", function(d){ return (d.hasOwnProperty("drilldown") && d.drilldown !== "") ? "pointer" : ""; })
 	                    .style("top", function(d){ return Number(d.labely) - (viz.config.link_text_size) + "px"; })
-	                    .attr("title", function(d) { return d.tooltip; })
+	                    .attr("data-flow_map_viz-tooltip", function(d) { return d.tooltip; })
 	                    .style("text-shadow", function(d){
 	                        return "-1px -1px 0 " + viz.config.background_color + ", 1px -1px 0 " + viz.config.background_color + ", -1px 1px 0 " + viz.config.background_color + ", 1px 1px 0 " + viz.config.background_color;
 	                    })
-	                    .html(function(d) { return d.label; })
+	                    .html(function(d) { return viz.config.labels_as_html === "no" ? viz.escapeHtml(d.label) : d.label; })
 	                    .each(function(d){
 	                        var node = this;
 	                        d.offsetWidth = node.offsetWidth;
@@ -902,16 +971,18 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 
 	        updatePositions: function() {
 	            var viz = this;
-	            // When stuff is dragged, or when the forces are being simulated, move items
-	            viz.nodeSelection
-	                .style("transform", function(d) {
-	                    // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
-	                    if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
-	                    d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
-	                    d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
-	                    // 5 is the padding
-	                    return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
-	                });
+	            for (var nodeLayerIdx = 0; nodeLayerIdx < viz.nodeLayers.length; nodeLayerIdx++) {
+	                // When stuff is dragged, or when the forces are being simulated, move items
+	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"]
+	                    .style("transform", function(d) {
+	                        // Prevent stuff going outside view. d.x and d.y are midpoints so stuff can still half go outside the canvas
+	                        if (isNaN(d.width)) {console.log("there is no d.width on tick", d); return; }
+	                        d.x = Math.max(d.radius, Math.min(viz.config.containerWidth - d.radius, d.x));
+	                        d.y = Math.max(d.radius, Math.min(viz.config.containerHeight - d.radius, d.y));
+	                        // 5 is the padding
+	                        return "translate(" + (d.x - d.width * 0.5 - 5) + "px," + (d.y - d.height * 0.5 - 5) + "px)";
+	                    });
+	            }
 
 	            viz.linkSelection
 	                .attr("x1", function(d){ d.sx = (d.source.x || 0) + d.sx_mod; return d.sx; })
@@ -1259,7 +1330,15 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 
 
 
-
+	/*!
+	 * hoverIntent v1.10.1 // 2019.10.05 // jQuery v1.7.0+
+	 * http://briancherne.github.io/jquery-hoverIntent/
+	 *
+	 * You may use hoverIntent under the terms of the MIT license. Basically that
+	 * means you are free to use hoverIntent as long as this header is left intact.
+	 * Copyright 2007-2019 Brian Cherne
+	 */
+	!function(factory){"use strict"; true?!(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(2)], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory), __WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ? (__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)):"object"==typeof module&&module.exports?module.exports=factory(require("jquery")):jQuery&&!jQuery.fn.hoverIntent&&factory(jQuery)}(function($){"use strict";function track(ev){cX=ev.pageX,cY=ev.pageY}var cX,cY,_cfg={interval:100,sensitivity:6,timeout:0},INSTANCE_COUNT=0,compare=function(ev,$el,s,cfg){if(Math.sqrt((s.pX-cX)*(s.pX-cX)+(s.pY-cY)*(s.pY-cY))<cfg.sensitivity)return $el.off(s.event,track),delete s.timeoutId,s.isActive=!0,ev.pageX=cX,ev.pageY=cY,delete s.pX,delete s.pY,cfg.over.apply($el[0],[ev]);s.pX=cX,s.pY=cY,s.timeoutId=setTimeout(function(){compare(ev,$el,s,cfg)},cfg.interval)};$.fn.hoverIntent=function(handlerIn,handlerOut,selector){var instanceId=INSTANCE_COUNT++,cfg=$.extend({},_cfg);$.isPlainObject(handlerIn)?(cfg=$.extend(cfg,handlerIn),$.isFunction(cfg.out)||(cfg.out=cfg.over)):cfg=$.isFunction(handlerOut)?$.extend(cfg,{over:handlerIn,out:handlerOut,selector:selector}):$.extend(cfg,{over:handlerIn,out:handlerIn,selector:handlerOut});function handleHover(e){var ev=$.extend({},e),$el=$(this),hoverIntentData=$el.data("hoverIntent");hoverIntentData||$el.data("hoverIntent",hoverIntentData={});var state=hoverIntentData[instanceId];state||(hoverIntentData[instanceId]=state={id:instanceId}),state.timeoutId&&(state.timeoutId=clearTimeout(state.timeoutId));var mousemove=state.event="mousemove.hoverIntent.hoverIntent"+instanceId;if("mouseenter"===e.type){if(state.isActive)return;state.pX=ev.pageX,state.pY=ev.pageY,$el.off(mousemove,track).on(mousemove,track),state.timeoutId=setTimeout(function(){compare(ev,$el,state,cfg)},cfg.interval)}else{if(!state.isActive)return;$el.off(mousemove,track),state.timeoutId=setTimeout(function(){!function(ev,$el,s,out){var data=$el.data("hoverIntent");data&&delete data[s.id],out.apply($el[0],[ev])}(ev,$el,state,cfg.out)},cfg.timeout)}}return this.on({"mouseenter.hoverIntent":handleHover,"mouseleave.hoverIntent":handleHover},cfg.selector)}});
 
 
 

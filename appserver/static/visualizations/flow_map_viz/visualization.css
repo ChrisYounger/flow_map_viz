@@ -8,26 +8,50 @@
 .flow_map_viz-svg,
 .flow_map_viz-svgNodes,
 .flow_map_viz-linklabels,
-.flow_map_viz-nodelabels {
+.flow_map_viz-nodelabels,
+.flow_map_viz-bgnodelabels {
     position:absolute;
     top: 0;
     left: 0;
     box-sizing: border-box;
 }
+.flow_map_viz-bgnodelabels { z-index:10; }
+.flow_map_viz-svg { z-index:20; pointer-events: none; }
+.flow_map_viz-container > canvas { z-index:30; pointer-events: none; }
+.flow_map_viz-linklabels { z-index:40; }
+.flow_map_viz-nodelabels { z-index:50; }
+
+/* .flow_map_viz_tooltip {
+    position:absolute;
+    padding: 10px;
+    z-index: 999999;
+    width: 350px;
+    background-color: #000000;
+    text-shadow: none;
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5);
+} */
+/* .flow_map_viz_tooltip {
+    display:block !important;
+} */
+
 .flow_map_viz-container-svg {
     display: block;
 }
-.flow_map_viz-tooltip {
+.flow_map_viz-tooltip_wrap {
     position: absolute;
-    z-index: 10;
-    visibility: hidden;
+    /*visibility: hidden;*/
+    z-index: 9000;
+}
+.flow_map_viz-tooltip {
     background-color: #F2F4F5;
     border: 1px solid #C6C6C6;
     text-align: center;
     padding: 6px;
-    border-radius: 4px;
+    position:relative;
+    display: block;
+    border-radius: 3px;
     color: #5E5E5E;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+    box-shadow:  0 6px 6px rgba(0,0,0,0.20);
 }
 .flow_map_viz-tooltip-divider {
     color: black;
@@ -41,6 +65,7 @@
 .flow_map_viz-copylink {
     position: absolute;
     top: 0px;
+    z-index:999;
     left: 30px;
     cursor: pointer;
     opacity: 0;
@@ -65,6 +90,7 @@
 .flow_map_viz-nodeset > i {
   position: absolute;
 }
+.flow_map_viz-bgnodelabels > div,
 .flow_map_viz-nodelabels > div {
     position: absolute;
     display: flex;
