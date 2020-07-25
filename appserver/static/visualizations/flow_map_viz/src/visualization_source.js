@@ -6,13 +6,15 @@ define([
     'api/SplunkVisualizationBase',
     'jquery',
     'd3',
-    'pixi.js'
+    'pixi.js',
+    'tinycolor2'
 ],
 function(
     SplunkVisualizationBase,
     $,
     d3,
-    PIXI
+    PIXI,
+    tinycolor
 ) {
     var vizObj = {
         initialize: function() {
