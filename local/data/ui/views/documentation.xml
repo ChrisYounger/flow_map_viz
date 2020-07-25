@@ -467,7 +467,7 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <tr>
 <td><code>order</code></td>
 <td>Number</td>
-<td>The stacking order of the node. Defaults to 50. Lower numbers stack under higher numbers.</td>
+<td>The stacking order of the node. Defaults to 50. Lower numbers stack under higher numbers. A negative value will stack underneath everything else</td>
 </tr>
 <tr>
 <td><code>drilldown</code></td>
