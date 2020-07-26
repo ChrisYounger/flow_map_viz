@@ -1,4 +1,4 @@
-<dashboard theme="light">
+<dashboard theme="light" hideAppBar="true">
   <label>Flow Map Viz - Documentation</label>
   <search id="base1">
     <query>| makeresults
@@ -95,8 +95,7 @@ from=DS_DC_Common to=internal good=12 warn=0  error=0 "
     <panel>
       <html>
 <div id="details"><p>A visualization used for showing the proportion of traffic volume across different links. Inspired by Vizceral by NetFlix. Most often the particles represent an automatically scaled multiple of real traffic volume. Each link can only create 60 particles per second.</p>
-<p>Copyright (C) 2019 Chris Younger. I am a Splunk Professional Services consultant working for JDS Australia, in Brisbane Australia.</p>
-<p><a href="https://github.com/ChrisYounger/flow_map_viz">Source code</a> | <a href="https://splunkbase.splunk.com/app/4657/">Splunkbase</a> |  <a href="https://answers.splunk.com/app/questions/4657.html">Questions, Bugs or Suggestions</a> | <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds">My Splunk apps</a></p>
+<p>Copyright (C) 2020 Chris Younger | <a href="https://github.com/ChrisYounger/flow_map_viz">Source code</a> | <a href="https://splunkbase.splunk.com/app/4657/">Splunkbase</a> |  <a href="https://answers.splunk.com/app/questions/4657.html">Questions, Bugs or Suggestions</a> | <a href="https://splunkbase.splunk.com/apps/#/author/chrisyoungerjds">My Splunk apps</a></p>
 <p><br /><br /><br /></p>
 <h1>Usage</h1>
 <p>This visualisation expects tabular data, with specific field names. There are two kinds of row data that should be supplied: links and nodes.  The link data is identified by having both a <code>from</code> and <code>to</code> field, or a <code>path</code> field. The path field is delimited by three hyphens "<code>---</code>" and can include hops through multiple nodes.  The node data will have a node field. </p>
