@@ -414,8 +414,22 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    if (viz.timer.hasOwnProperty("destroy")) {
 	                        viz.timer.destroy();
 	                    }
-	                } 
+	                }
 	                viz.$container_wrap.append(viz.svg.node());
+	                viz.$container_wrap.off("click.cleartokens").on("click.cleartokens", function(){
+	                    var tokens = ["flow_map_viz-label", "flow_map_viz-node", "flow_map_viz-type", "flow_map_viz-drilldown"];
+	                    var defaultTokenModel = splunkjs.mvc.Components.get('default');
+	                    var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
+	                    for (var m = 0; m < tokens.length; m++) {
+	                        if (defaultTokenModel) {
+	                            defaultTokenModel.unset(tokens[m]);
+	                        }
+	                        if (submittedTokenModel) {
+	                            submittedTokenModel.unset(tokens[m]);
+	                        }
+	                    }
+	                    console.log("Tokens cleared");
+	                });
 
 	                // we use our own fallback to canvas instead of the pixi one
 	                if  (viz.config.renderer === "webgl" && PIXI.utils.isWebGLSupported()) {
@@ -488,6 +502,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                viz.positionsButton = $("<span class='flow_map_viz-copylink btn-pill'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
 	                    .appendTo(viz.$container_wrap)
 	                    .on("click", function(){
+	                        d3.event.stopPropagation();
 	                        viz.dumpPositions();
 	                    }).on("mouseover",function(){
 	                        viz.positionsButton.css({"opacity": "1"});
@@ -636,6 +651,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    })
 	                    .call(viz.drag(viz.simulation))
 	                    .on("click", function(d){
+	                        d3.event.stopPropagation();
 	                        var tokens = {
 	                            "flow_map_viz-label": d.label,
 	                            "flow_map_viz-node": d.id,
