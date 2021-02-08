@@ -457,8 +457,8 @@ function(
                 viz.positionsButton = $("<span class='flow_map_viz-copylink btn-pill'><i class='far fa-clipboard'></i> Copy positions to clipboard</span>")
                     .appendTo(viz.$container_wrap)
                     .on("click", function(){
-                        d3.event.stopPropagation();
                         viz.dumpPositions();
+                        d3.event.stopPropagation();
                     }).on("mouseover",function(){
                         viz.positionsButton.css({"opacity": "1"});
                     }).on("mouseout", function(){
@@ -606,7 +606,6 @@ function(
                     })
                     .call(viz.drag(viz.simulation))
                     .on("click", function(d){
-                        d3.event.stopPropagation();
                         var tokens = {
                             "flow_map_viz-label": d.label,
                             "flow_map_viz-node": d.id,
@@ -616,6 +615,7 @@ function(
                             tokens["flow_map_viz-drilldown"] = d.drilldown;
                         }
                         viz.setTokens(tokens);
+                        d3.event.stopPropagation();
                     });
 
                 // Reselect everything
