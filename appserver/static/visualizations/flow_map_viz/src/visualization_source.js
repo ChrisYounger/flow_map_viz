@@ -499,6 +499,7 @@ function(
                     selector: ".flow_map_viz-nodeset, .flow_map_viz-linklabel",
                     over: function(){
                         viz.domTooltip.empty().append($("<div class='flow_map_viz-tooltip'></div>").append($(this).attr("data-flow_map_viz-tooltip")));
+                        //if it is a node, then dim all nodse and links, and highlight just hte links out of this node
                     },
                     out: function(){
                         viz.domTooltip.empty();
