@@ -1,4 +1,4 @@
-<dashboard theme="light" hideAppBar="true">
+<dashboard version="1.1" theme="light" hideAppBar="true">
   <label>Flow Map Viz - Documentation</label>
   <search id="base1">
     <query>| makeresults
