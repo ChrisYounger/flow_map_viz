@@ -371,20 +371,7 @@ function(
                     }
                 }
                 viz.$container_wrap.append(viz.svg.node());
-                viz.$container_wrap.off("click.cleartokens").on("click.cleartokens", function(){
-                    var tokens = ["flow_map_viz-label", "flow_map_viz-node", "flow_map_viz-type", "flow_map_viz-drilldown"];
-                    var defaultTokenModel = splunkjs.mvc.Components.get('default');
-                    var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
-                    for (var m = 0; m < tokens.length; m++) {
-                        if (defaultTokenModel) {
-                            defaultTokenModel.unset(tokens[m]);
-                        }
-                        if (submittedTokenModel) {
-                            submittedTokenModel.unset(tokens[m]);
-                        }
-                    }
-                    console.log("Tokens cleared");
-                });
+                viz.$container_wrap.off("click.cleartokens").on("click.cleartokens", viz.clearTokens);
 
                 // we use our own fallback to canvas instead of the pixi one
                 if  (viz.config.renderer === "webgl" && PIXI.utils.isWebGLSupported()) {
@@ -539,8 +526,8 @@ function(
                     }
                 }
             }
-            viz.bgNodeData = []
-            viz.fgNodeData = []
+            viz.bgNodeData = [];
+            viz.fgNodeData = [];
             for (i = 0; i < viz.nodeData.length; i++){
                 // If the dashboard has updated the fx might already be set
                 if (! viz.nodeData[i].hasOwnProperty("isPositioned")) {
@@ -615,6 +602,7 @@ function(
                         if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
                             tokens["flow_map_viz-drilldown"] = d.drilldown;
                         }
+                        viz.clearTokens();
                         viz.setTokens(tokens);
                         d3.event.stopPropagation();
                     });
@@ -661,7 +649,7 @@ function(
                         selection
                             .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
                             .select(".flow_map_viz-nodeicon")
-                            .attr("class", function(d){ return "flow_map_viz-nodeicon " + (d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon; })
+                            .attr("class", function(d){ return "flow_map_viz-nodeicon " + ((d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon); })
                             .style("font-size", function(d){ return d.height + "px"; })
                             .style("color", function(d){ return d.color; })
                             .style("-webkit-text-stroke-color", function(d){ 
@@ -731,7 +719,9 @@ function(
                         if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
                             tokens["flow_map_viz-drilldown"] = d.drilldown;
                         }
+                        viz.clearTokens();
                         viz.setTokens(tokens);
+                        d3.event.stopPropagation();
                         if (tokens.hasOwnProperty("flow_map_viz-drilldown")) {
                             viz.drilldown({
                                 action: SplunkVisualizationBase.FIELD_VALUE_DRILLDOWN,
@@ -776,6 +766,21 @@ function(
                     }
                 }
             }
+        },
+        
+        clearTokens: function() {
+            var tokens = ["flow_map_viz-label", "flow_map_viz-node", "flow_map_viz-type", "flow_map_viz-drilldown", "flow_map_viz-link", "flow_map_viz-from", "flow_map_viz-to"];
+            var defaultTokenModel = splunkjs.mvc.Components.get('default');
+            var submittedTokenModel = splunkjs.mvc.Components.get('submitted');
+            for (var m = 0; m < tokens.length; m++) {
+                if (defaultTokenModel) {
+                    defaultTokenModel.unset(tokens[m]);
+                }
+                if (submittedTokenModel) {
+                    submittedTokenModel.unset(tokens[m]);
+                }
+            }
+            console.log("Tokens cleared");
         },
 
         // read a row of input data and put it into a normalisaed object
