@@ -555,6 +555,9 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    .force('y', forceY)
 	                    .alphaTarget(0)
 	                    .on("tick", function() {
+	                        // TODO there is a problem where this viz uses a lot of CPU on VDIs and low spec machines. Need to investigate more.
+	                        // console.log("alpha is ", viz.simulation.alpha());
+	                        // viz.simulation.stop
 	                        viz.updatePositions();
 	                    });
 	            }
@@ -646,10 +649,14 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                        };
 	                        if (d.hasOwnProperty("drilldown") && d.drilldown !== ""){
 	                            tokens["flow_map_viz-drilldown"] = d.drilldown;
-	                        }
+	                        }                        
 	                        viz.clearTokens();
 	                        viz.setTokens(tokens);
 	                        d3.event.stopPropagation();
+	                        viz.drilldown({
+	                            action: SplunkVisualizationBase.FIELD_VALUE_DRILLDOWN,
+	                            data: tokens
+	                        }, d3.event);
 	                    });
 
 	                // Reselect everything
@@ -767,12 +774,10 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                        viz.clearTokens();
 	                        viz.setTokens(tokens);
 	                        d3.event.stopPropagation();
-	                        if (tokens.hasOwnProperty("flow_map_viz-drilldown")) {
-	                            viz.drilldown({
-	                                action: SplunkVisualizationBase.FIELD_VALUE_DRILLDOWN,
-	                                data: tokens
-	                            }, d3.event);
-	                        }
+	                        viz.drilldown({
+	                            action: SplunkVisualizationBase.FIELD_VALUE_DRILLDOWN,
+	                            data: tokens
+	                        }, d3.event);
 	                    });
 
 	            viz.startParticlesSoon();
