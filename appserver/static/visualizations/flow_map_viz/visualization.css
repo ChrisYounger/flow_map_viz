@@ -109,6 +109,11 @@
     width: 200px;
 }
 
+@keyframes flow_map_viz-spin {
+    0% { rotate:0deg; }
+    100% { rotate:360deg; } 
+}
+
 
 
 

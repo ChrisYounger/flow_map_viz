@@ -267,7 +267,7 @@ Tokens will always be set when clicking on nodes or link labels. Hit "F12" to op
 <strong>Nodes:</strong> <code>$flow_map_viz-label$</code>, <code>$flow_map_viz-node$</code>, <code>$flow_map_viz-drilldown$</code>, <code>$flow_map_viz-type$</code><br />
 <strong>Links:</strong> <code>$flow_map_viz-label$</code>, <code>$flow_map_viz-link$</code>, <code>$flow_map_viz-drilldown$</code>, <code>$flow_map_viz-type$</code>, <code>$flow_map_viz-from$</code>, <code>$flow_map_viz-to$</code><br /><br />
 
-Note that link labels can be used for "drilldowns" to other Splunk dashboards etc. However that as nodes can be dragged to reposition, these can't be used for drilldowns.<br />
+Note that link labels can be used for "drilldowns" to other Splunk dashboards etc. However that as nodes can be dragged to reposition, these can't be used for drilldowns. (actually now they can)<br />
 A work-around for drilldown on nodes, enable the "Advanced" &gt; "HTML Labels" formatter option, and then set the "label" data field to include a html "a" tag to link to your required destination. E.g.
 <div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing_query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">eval</span><span style="color: #d4d4d4;"> label = </span><span style="color: #ce9178;">"&lt;a href='search?q="</span><span style="color: #d4d4d4;"> + drilldown + </span><span style="color: #ce9178;">"' target='_blank'&gt;"</span><span style="color: #d4d4d4;"> + node_label + </span><span style="color: #ce9178;">"&lt;/a&gt;"</span></span><br/></div>
 <br /><br /><br />
@@ -478,6 +478,16 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
 <td>String</td>
 <td>Specify a custom hover tooltip for the node. By default show the Node ID. Can use HTML if enabled in the formatting options.</td>
 </tr>
+<tr>
+<td><code>class</code></td>
+<td>String</td>
+<td>The node element will be created with this string as classs names(s)</td>
+</tr>
+<tr>
+<td><code>spin</code></td>
+<td>Number</td>
+<td>Specify the number of seconds to complete a 360degree spin of the icon. Lower number is a faster spin speed. Only works with icon type nodes.</td>
+</tr>
 </tbody>
 </table>
 <p><br /><br /><br /></p>
@@ -545,7 +555,6 @@ Here is an search that will generate a template CSV file called my_flowmap_confi
         <option name="flow_map_viz.flow_map_viz.particle_spread">5</option>
         <option name="flow_map_viz.flow_map_viz.particle_warn_color">#d16f18</option>
         <option name="flow_map_viz.flow_map_viz.positions">"internal":"50,50"</option>
-        <option name="flow_map_viz.flow_map_viz.stop_when_not_visible">yes</option>
         <option name="height">376</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
@@ -623,8 +632,8 @@ If node data is stored in a lookup table, it can be added to an existing query l
         <option name="flow_map_viz.flow_map_viz.particle_spread">5</option>
         <option name="flow_map_viz.flow_map_viz.particle_warn_color">#d16f18</option>
         <option name="flow_map_viz.flow_map_viz.positioning">course</option>
+        <option name="flow_map_viz.flow_map_viz.width">900</option>
         <option name="flow_map_viz.flow_map_viz.positions">"DC1":"74,30","DC2":"74,68","Brisbane":"13,16","Melbourne":"13,46","LB":"44,48","Sydney":"13,72","IHS002":"61,65","IHS001":"61,30","DB":"87,30","APP002":"74,65","APP001":"74,30"</option>
-        <option name="flow_map_viz.flow_map_viz.stop_when_not_visible">yes</option>
         <option name="height">526</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
@@ -648,4 +657,83 @@ If node data is stored in a lookup table, it can be added to an existing query l
       </table>
     </panel>
   </row>
+ <row  depends="$showtab3$">
+    <panel>
+      <html>
+        A more complex example that shows how to define node properties in addition to link properties. This example also shows how multiple-links can be specified at once using the "path" syntax. Each node should be delimited by three hypens "---".
+      </html>
+    </panel>
+    <panel>
+      <html>
+If node data is stored in a lookup table, it can be added to an existing query like so: <div style='font-family: Consolas, "Courier New", monospace; font-weight: normal; font-size: 14px; line-height: 19px; letter-spacing: 0px; color:rgb(212, 212, 212); background-color:rgb(30, 30, 30);padding:10px;margin:5px;'><span><span style="color: #d4d4d4;">&lt;existing query&gt; </span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #d4d4d4;"> </span><span style="color: #569cd6;font-weight: bold;">append</span><span style="color: #d4d4d4;"> [</span><span style="color: #d4d4d4;font-weight: bold;">|</span><span style="color: #569cd6;font-weight: bold;">inputlookup</span><span style="color: #d4d4d4;"> my_table_of_nodes.csv]</span></span><br/></div>.         
+      </html>
+    </panel>
+    </row>  
+  <row  depends="$showtab3$">
+    <panel>
+      <viz type="flow_map_viz.flow_map_viz">
+        <title>Complex example</title>
+        <search base="base1">
+          <query/>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="flow_map_viz.flow_map_viz.background_color">#ffffff</option>
+        <option name="flow_map_viz.flow_map_viz.background_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.course_positions">yes</option>
+        <option name="flow_map_viz.flow_map_viz.labels_as_html">yes</option>
+        <option name="flow_map_viz.flow_map_viz.line_style">solid</option>
+        <option name="flow_map_viz.flow_map_viz.link_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.link_distance">200</option>
+        <option name="flow_map_viz.flow_map_viz.link_label_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.link_opacity">0.4</option>
+        <option name="flow_map_viz.flow_map_viz.link_speed">90</option>
+        <option name="flow_map_viz.flow_map_viz.link_text_size">10</option>
+        <option name="flow_map_viz.flow_map_viz.link_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.maxnodes">100</option>
+        <option name="flow_map_viz.flow_map_viz.node_bg_color">#cccccc</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_mode">darker1</option>
+        <option name="flow_map_viz.flow_map_viz.node_border_width">1</option>
+        <option name="flow_map_viz.flow_map_viz.node_center_force">0.1</option>
+        <option name="flow_map_viz.flow_map_viz.node_height">30</option>
+        <option name="flow_map_viz.flow_map_viz.node_radius">2</option>
+        <option name="flow_map_viz.flow_map_viz.node_repel_force">1000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_shadow_mode">custom</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_color">#000000</option>
+        <option name="flow_map_viz.flow_map_viz.node_text_size">12</option>
+        <option name="flow_map_viz.flow_map_viz.node_width">120</option>
+        <option name="flow_map_viz.flow_map_viz.particle_blur">0</option>
+        <option name="flow_map_viz.flow_map_viz.particle_error_color">#b22b32</option>
+        <option name="flow_map_viz.flow_map_viz.particle_good_color">#1a9035</option>
+        <option name="flow_map_viz.flow_map_viz.particle_limit">60</option>
+        <option name="flow_map_viz.flow_map_viz.particle_size">3</option>
+        <option name="flow_map_viz.flow_map_viz.particle_spread">5</option>
+        <option name="flow_map_viz.flow_map_viz.particle_warn_color">#d16f18</option>
+        <option name="flow_map_viz.flow_map_viz.positioning">course</option>
+        <option name="flow_map_viz.flow_map_viz.width">900</option>
+        <option name="flow_map_viz.flow_map_viz.positions">"DC1":"74,30","DC2":"74,68","Brisbane":"13,16","Melbourne":"13,46","LB":"44,48","Sydney":"13,72","IHS002":"61,65","IHS001":"61,30","DB":"87,30","APP002":"74,65","APP001":"74,30"</option>
+        <option name="height">526</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <table>
+        <title>Data</title>
+        <search base="base1">
+          <query>| table path node good warn error height width* icon label labely opacity</query>
+        </search>
+        <option name="count">30</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>  
 </dashboard>

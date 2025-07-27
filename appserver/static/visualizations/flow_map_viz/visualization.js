@@ -548,6 +548,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                var forceY = d3.forceY(viz.config.containerHeight / 2).strength(Number(viz.config.node_center_force));
 
 	                // Force testing playground: https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03
+
 	                viz.simulation = d3.forceSimulation([]) // initialise with empty set
 	                    .force("link", forceLink)
 	                    .force("charge", forceCharge)
@@ -556,9 +557,10 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                    .alphaTarget(0)
 	                    .on("tick", function() {
 	                        // TODO there is a problem where this viz uses a lot of CPU on VDIs and low spec machines. Need to investigate more.
-	                        // console.log("alpha is ", viz.simulation.alpha());
-	                        // viz.simulation.stop
+	                        //console.log("forcelayout tick, alpha=", viz.simulation.alpha());
 	                        viz.updatePositions();
+	                    }).on("end", function() {
+	                        //console.log("forcelayout done");
 	                    });
 	            }
 
@@ -618,7 +620,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 
 	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"].enter()
 	                    .append("div")
-	                    .attr("class", "flow_map_viz-nodeset") 
+	                    .attr("class", "flow_map_viz-nodeset")
 	                    // Remove fixed position on double click
 	                    .on("dblclick", function(d){ 
 	                        d.fx = null;
@@ -665,6 +667,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 
 	                viz[viz.nodeLayers[nodeLayerIdx] + "NodeSelection"]
 	                    .attr("data-flow_map_viz-tooltip", function(d){ return d.hasOwnProperty("tooltip") && typeof d.tooltip !== "undefined" ? d.tooltip : d.id; })
+	                    .attr("class", function(d){ return "flow_map_viz-nodeset" + (d.hasOwnProperty("class") ? " " + d["class"] : ""); })
 	                    .style("width", function(d){ return d.width + "px"; })
 	                    .style("height", function(d){ return d.height + "px"; })
 	                    .style("opacity", function(d){ return d.opacity; })
@@ -687,6 +690,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                                }
 	                                return viz.config.node_border_width + "px solid " + viz.config.node_border_color;
 	                            })
+	                            // cant add spin here becuase it interacts badly with the positioning transform. could use a nested div, but i dont want to break any existing viz's in the field.
 	                            .style("box-shadow", function(d){ return viz.getShadow(d); })
 	                            .style("border-radius", function(d){ return d.rx + "px"; })
 	                            .style("background-color", function(d){ return d.color; });
@@ -702,6 +706,7 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	                            .filter(function(d){ return d.hasOwnProperty("icon") && d.icon !== ""; })
 	                            .select(".flow_map_viz-nodeicon")
 	                            .attr("class", function(d){ return "flow_map_viz-nodeicon " + ((d.icon.indexOf(" ") === -1) ? "fas fa-" + d.icon : d.icon); })
+	                            .style("animation", function(d){ return d.spin !== "" ? "flow_map_viz-spin " + d.spin + "s linear infinite" : undefined; })
 	                            .style("font-size", function(d){ return d.height + "px"; })
 	                            .style("color", function(d){ return d.color; })
 	                            .style("-webkit-text-stroke-color", function(d){ 
@@ -861,6 +866,8 @@ define(["api/SplunkVisualizationBase"], function(__WEBPACK_EXTERNAL_MODULE_1__) 
 	            viz.nodeDataMap[id].drilldown = opts.hasOwnProperty("drilldown") ? opts.drilldown : "";
 	            viz.nodeDataMap[id].order = opts.hasOwnProperty("order") && opts.order !== "" ? opts.order : "50";
 	            viz.nodeDataMap[id].tooltip = opts.hasOwnProperty("tooltip") && typeof opts.tooltip !== "undefined" ? opts.tooltip : viz.nodeDataMap[id].tooltip;
+	            viz.nodeDataMap[id]["class"] = opts.hasOwnProperty("class") ? opts["class"] : "";
+	            viz.nodeDataMap[id].spin = opts.hasOwnProperty("spin") ? opts.spin : "";
 
 	            // Check numeric values are actually numeric
 	            if (isNaN(viz.nodeDataMap[id].labelx)) {
